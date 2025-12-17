@@ -8,7 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "start": "serve dist -s -n -l ${PORT:-8080}"
+    "start": "serve dist -s -n -l tcp://0.0.0.0:${PORT:-8080}"
   },
   "dependencies": {
     "lucide-react": "^0.559.0",
