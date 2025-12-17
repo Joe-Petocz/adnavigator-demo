@@ -1,0 +1,1052 @@
+import { useEffect, useState } from "react";
+import {
+  Activity,
+  ArrowRight,
+  CheckCircle,
+  ChevronLeft,
+  ChevronRight,
+  Cpu,
+  Download,
+  Facebook,
+  Globe,
+  Layers,
+  Lock,
+  MonitorPlay,
+  Play,
+  Scan,
+  ShieldCheck,
+  Sparkles,
+  Star,
+  Target,
+  Video,
+} from "lucide-react";
+import "./index.css";
+
+const GOLD_GRADIENT = "bg-gradient-to-r from-[#FDFBF7] via-[#D4AF37] to-[#AA8220]";
+const TEXT_GRADIENT =
+  "bg-clip-text text-transparent bg-gradient-to-r from-[#FDFBF7] via-[#D4AF37] to-[#AA8220]";
+const GOLD_GLOW = "shadow-[0_0_20px_rgba(212,175,55,0.15)]";
+
+const normalizeUrl = (rawUrl) => {
+  if (!rawUrl) return null;
+  try {
+    const withProtocol = /^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`;
+    return new URL(withProtocol).toString();
+  } catch {
+    return null;
+  }
+};
+
+const fetchWebsiteSnapshot = async (rawUrl) => {
+  const normalized = normalizeUrl(rawUrl);
+  if (!normalized) return null;
+
+  try {
+    const response = await fetch(`https://r.jina.ai/${normalized}`, { method: "GET" });
+    if (!response.ok) throw new Error("Snapshot request failed.");
+
+    const payload = await response.text();
+    const [metaBlock = "", markdownBlock = ""] = payload.split("Markdown Content:");
+
+    const titleMatch = metaBlock.match(/Title:\s*(.+)/i);
+    const descriptionMatch = metaBlock.match(/Description:\s*(.+)/i);
+
+    const cleanMarkdown = markdownBlock.replace(/\r/g, "").trim();
+
+    const extractHeadlines = () => {
+      const headlines = [];
+      const headingRegex = /^#{1,3}\s+(.*)$/gm;
+      let match;
+      while ((match = headingRegex.exec(cleanMarkdown)) && headlines.length < 3) {
+        const text = match[1].trim();
+        if (text && !headlines.includes(text)) headlines.push(text);
+      }
+      return headlines;
+    };
+
+    const extractImages = () => {
+      const images = [];
+      const seen = new Set();
+      const imageRegex = /!\[[^\]]*\]\((https?:\/\/[^)]+)\)/g;
+      let match;
+      while ((match = imageRegex.exec(cleanMarkdown)) && images.length < 4) {
+        const url = match[1].split("?")[0];
+        if (!seen.has(url)) {
+          seen.add(url);
+          images.push(url);
+        }
+      }
+
+      const fallbackRegex = /(https?:\/\/[^\s)]+?\.(?:png|jpe?g|gif|webp))/gi;
+      while (images.length < 4 && (match = fallbackRegex.exec(cleanMarkdown))) {
+        const url = match[1];
+        if (!seen.has(url)) {
+          seen.add(url);
+          images.push(url);
+        }
+      }
+
+      return images;
+    };
+
+    const textSample = cleanMarkdown
+      .replace(/[#>*_\-`]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 2000);
+
+    return {
+      url: normalized,
+      title: titleMatch?.[1]?.trim() || "",
+      description: descriptionMatch?.[1]?.trim() || "",
+      text: textSample,
+      headlines: extractHeadlines(),
+      images: extractImages(),
+    };
+  } catch (error) {
+    console.error("Failed to fetch site snapshot", error);
+    return null;
+  }
+};
+
+const generateAnalysis = (companyName = "MyBrand.com") => {
+  const resolved = companyName?.trim() || "MyBrand.com";
+  return {
+    business: {
+      industry: "E-Commerce / Retail",
+      location: "Global / Digital",
+      positioning: "Premium D2C Brand",
+      segment: "Affluent Millennials",
+    },
+    swot: {
+      strengths: ["High Brand Recall", "Strong Visual Identity", "Direct Supply Chain"],
+      weaknesses: ["Limited Organic Reach", "High CPA on FB", "Inventory Flux"],
+      opportunities: ["TikTok Shop Expansion", "Influencer Seeding", "UGC Campaigns"],
+      threats: ["Rising Ad Costs", "Low-Cost Competitors", "Platform Volatility"],
+    },
+    icp: {
+      demographics: ["25-45 Years Old", "Urban Dwellers", "$75k+ Income"],
+      interests: ["Sustainable Living", "Tech Gadgets", "Modern Design"],
+      behaviors: ["Frequent Online Shoppers", "iOS Users", "High LTV potential"],
+      personas: ["The Trendsetter", "The Conscious Consumer"],
+    },
+    assets: {
+      headlines: [`Experience ${resolved}`, "Redefining Quality", "Shop The Collection"],
+      images: [],
+    },
+  };
+};
+
+const generateCreative = (companyName = "MyBrand.com") => {
+  const resolved = companyName?.trim() || "MyBrand.com";
+  return {
+    headlines: [
+      `Stop scrolling. ${resolved} is finally here.`,
+      "The secret to upgrading your lifestyle.",
+      `Why everyone is talking about ${resolved}.`,
+    ],
+    primaryText: `We scanned the market and found the missing piece. ${resolved} delivers premium quality without the markup. Join thousands of happy customers today. Free shipping on your first order.`,
+    ctas: ["Shop Now", "Learn More"],
+  };
+};
+
+const OPENAI_MODEL = "gpt-4o-mini";
+const OPENAI_ENDPOINT = "https://api.openai.com/v1/chat/completions";
+
+const ensureArray = (value, fallback) => {
+  if (Array.isArray(value) && value.length) return value;
+  if (typeof value === "string" && value.trim().length) return [value.trim()];
+  return fallback;
+};
+
+const ensureString = (value, fallback) => {
+  if (typeof value === "string" && value.trim().length) return value.trim();
+  return fallback;
+};
+
+const fetchFromOpenAI = async ({ systemPrompt, userPayload }) => {
+  const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error("Missing VITE_OPENAI_API_KEY environment variable.");
+  }
+
+  const response = await fetch(OPENAI_ENDPOINT, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: OPENAI_MODEL,
+      temperature: 0.4,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPayload },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    const errorPayload = await response.json().catch(() => ({}));
+    throw new Error(
+      errorPayload?.error?.message || `OpenAI request failed with ${response.status}`
+    );
+  }
+
+  const completion = await response.json();
+  const content = completion?.choices?.[0]?.message?.content;
+  if (!content) throw new Error("OpenAI response missing content.");
+
+  return JSON.parse(content);
+};
+
+const fetchBrandAnalysis = async (formData, siteSnapshot) => {
+  const fallback = generateAnalysis(formData?.website);
+  try {
+    const payload = JSON.stringify({
+      companyName: formData?.website || "MyBrand.com",
+      location: formData?.city,
+      phone: formData?.phone,
+      audienceRadius: formData?.radius,
+      contact: formData?.email,
+      site: siteSnapshot
+        ? {
+            url: siteSnapshot.url,
+            title: siteSnapshot.title,
+            description: siteSnapshot.description,
+            featuredHeadlines: siteSnapshot.headlines,
+            topImages: siteSnapshot.images,
+            textSample: siteSnapshot.text,
+          }
+        : null,
+    });
+
+    const data = await fetchFromOpenAI({
+      systemPrompt:
+        "You are a senior performance marketing strategist. Always respond with JSON shaped exactly like {business:{industry,location,positioning,segment},swot:{strengths[],weaknesses[],opportunities[],threats[]},icp:{demographics[],interests[],personas[]},assets:{headlines[]}}. Keep bullet arrays short, specific, and relevant to paid media planning.",
+      userPayload: `Generate an analysis for this company input: ${payload}`,
+    });
+
+    const safeBusiness = {
+      industry: ensureString(data.business?.industry, fallback.business.industry),
+      location: ensureString(data.business?.location, fallback.business.location),
+      positioning: ensureString(data.business?.positioning, fallback.business.positioning),
+      segment: ensureString(data.business?.segment, fallback.business.segment),
+    };
+
+    const fallbackHeadlines = ensureArray(siteSnapshot?.headlines, fallback.assets.headlines);
+
+    return {
+      business: safeBusiness,
+      swot: {
+        strengths: ensureArray(data.swot?.strengths, fallback.swot.strengths),
+        weaknesses: ensureArray(data.swot?.weaknesses, fallback.swot.weaknesses),
+        opportunities: ensureArray(data.swot?.opportunities, fallback.swot.opportunities),
+        threats: ensureArray(data.swot?.threats, fallback.swot.threats),
+      },
+      icp: {
+        demographics: ensureArray(data.icp?.demographics, fallback.icp.demographics),
+        interests: ensureArray(data.icp?.interests, fallback.icp.interests),
+        behaviors: ensureArray(data.icp?.behaviors, fallback.icp.behaviors),
+        personas: ensureArray(data.icp?.personas, fallback.icp.personas),
+      },
+      assets: {
+        headlines: ensureArray(data.assets?.headlines, fallbackHeadlines),
+        images: ensureArray(siteSnapshot?.images, fallback.assets.images),
+      },
+    };
+  } catch (error) {
+    console.error("OpenAI analysis failed, using fallback data.", error);
+    return fallback;
+  }
+};
+
+const fetchCreativeAssets = async (formData, siteSnapshot) => {
+  const fallback = generateCreative(formData?.website);
+  try {
+    const payload = JSON.stringify({
+      companyName: formData?.website || "MyBrand.com",
+      valueProp: "Premium AI-driven ad automation",
+      tone: "Premium, cinematic, confident",
+      audience: "Paid social decision makers",
+      site: siteSnapshot
+        ? {
+            title: siteSnapshot.title,
+            description: siteSnapshot.description,
+            featuredHeadlines: siteSnapshot.headlines,
+            imagery: siteSnapshot.images,
+            textSample: siteSnapshot.text,
+          }
+        : null,
+    });
+
+    const data = await fetchFromOpenAI({
+      systemPrompt:
+        "You generate short paid-social creative assets. Always respond with JSON shaped exactly like {headlines:[],primaryText:string,ctas:[]}. Headlines <= 12 words, CTA verbs, and primary text <= 80 words.",
+      userPayload: `Write creative variations for this company input: ${payload}`,
+    });
+
+    return {
+      headlines: ensureArray(data.headlines, fallback.headlines),
+      primaryText: ensureString(data.primaryText, fallback.primaryText),
+      ctas: ensureArray(data.ctas, fallback.ctas),
+    };
+  } catch (error) {
+    console.error("OpenAI creative generation failed, using fallback data.", error);
+    return fallback;
+  }
+};
+
+const Button = ({ children, onClick, variant = "primary", className = "", ...props }) => {
+  const baseStyle =
+    "relative overflow-hidden font-bold transition-all duration-500 rounded-lg flex items-center justify-center gap-2 px-8 py-4 transform hover:-translate-y-0.5 active:translate-y-0";
+  const variants = {
+    primary: `${GOLD_GRADIENT} text-black shadow-[0_10px_30px_-10px_rgba(212,175,55,0.4)] hover:shadow-[0_20px_40px_-10px_rgba(212,175,55,0.6)]`,
+    outline:
+      "bg-transparent border border-[#D4AF37]/50 text-[#D4AF37] hover:bg-[#D4AF37]/10 hover:border-[#D4AF37]",
+    ghost: "bg-white/5 text-white hover:bg-white/10 backdrop-blur-md border border-white/5",
+  };
+
+  return (
+    <button
+      onClick={onClick}
+      className={`${baseStyle} ${variants[variant]} ${className} group`}
+      {...props}
+    >
+      {variant === "primary" && (
+        <div className="absolute inset-0 bg-white/40 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-in-out skew-x-12" />
+      )}
+      {children}
+    </button>
+  );
+};
+
+const Card = ({ children, className = "", hoverEffect = true }) => (
+  <div
+    className={`bg-[#0B0B0B] border border-white/5 rounded-[24px] p-8 ${
+      hoverEffect
+        ? "hover:border-[#D4AF37]/30 hover:shadow-[0_20px_40px_-20px_rgba(0,0,0,0.7)] hover:-translate-y-1"
+        : ""
+    } transition-all duration-500 relative overflow-hidden ${className}`}
+  >
+    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#D4AF37]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+    {children}
+  </div>
+);
+
+const GoldIcon = ({ icon: Icon, size = 20, className = "" }) => (
+  <div className={`p-2 rounded-lg bg-[#D4AF37]/10 border border-[#D4AF37]/20 ${className}`}>
+    <Icon size={size} className="text-[#D4AF37]" />
+  </div>
+);
+
+const IntakeStep = ({ formData, setFormData, onNext }) => {
+  const handleInputChange = (event) => {
+    setFormData({ ...formData, [event.target.name]: event.target.value });
+  };
+
+  const startAnalysis = () => {
+    if (!formData.website) {
+      setFormData({ ...formData, website: "MyBrand.com" });
+    }
+    onNext();
+  };
+
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[80vh] w-full max-w-4xl mx-auto animate-fade-up">
+      <div className="text-center space-y-6 mb-12">
+        <h1 className="text-5xl md:text-7xl font-bold text-white tracking-tight leading-tight">
+          See how <span className={TEXT_GRADIENT}>AdNavigator</span> builds
+          <br />
+          your campaigns.
+        </h1>
+        <p className="text-neutral-400 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed font-light">
+          We scan your website, brand, competitors, audience, and messaging — then generate full
+          marketing research, a UGC video, headlines, primary text, and a ready-to-launch campaign.
+        </p>
+      </div>
+
+      <div className="w-full max-w-3xl bg-[#0a0a0a]/80 backdrop-blur-2xl border border-white/10 rounded-3xl p-8 shadow-2xl relative group">
+        <div className="absolute -inset-1 bg-gradient-to-r from-[#D4AF37]/0 via-[#D4AF37]/10 to-[#D4AF37]/0 blur-xl opacity-50 group-hover:opacity-100 transition-opacity duration-1000" />
+        <div className="relative space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-6">
+              <input
+                name="name"
+                placeholder="First & Last Name"
+                className="w-full bg-[#111] border border-white/10 rounded-xl px-5 py-4 text-white placeholder-neutral-600 focus:outline-none focus:border-[#D4AF37]/50 focus:bg-[#151515] transition-all"
+                onChange={handleInputChange}
+              />
+              <input
+                name="email"
+                placeholder="Email Address"
+                className="w-full bg-[#111] border border-white/10 rounded-xl px-5 py-4 text-white placeholder-neutral-600 focus:outline-none focus:border-[#D4AF37]/50 focus:bg-[#151515] transition-all"
+                onChange={handleInputChange}
+              />
+              <input
+                name="city"
+                placeholder="City"
+                className="w-full bg-[#111] border border-white/10 rounded-xl px-5 py-4 text-white placeholder-neutral-600 focus:outline-none focus:border-[#D4AF37]/50 focus:bg-[#151515] transition-all"
+                onChange={handleInputChange}
+              />
+            </div>
+            <div className="space-y-6">
+              <input
+                name="phone"
+                placeholder="Phone Number"
+                className="w-full bg-[#111] border border-white/10 rounded-xl px-5 py-4 text-white placeholder-neutral-600 focus:outline-none focus:border-[#D4AF37]/50 focus:bg-[#151515] transition-all"
+                onChange={handleInputChange}
+              />
+              <input
+                name="website"
+                placeholder="Business Website URL"
+                className="w-full bg-[#111] border border-white/10 rounded-xl px-5 py-4 text-white placeholder-neutral-600 focus:outline-none focus:border-[#D4AF37]/50 focus:bg-[#151515] transition-all"
+                onChange={handleInputChange}
+              />
+              <input
+                name="radius"
+                placeholder="Radius (Miles)"
+                type="number"
+                className="w-full bg-[#111] border border-white/10 rounded-xl px-5 py-4 text-white placeholder-neutral-600 focus:outline-none focus:border-[#D4AF37]/50 focus:bg-[#151515] transition-all"
+                onChange={handleInputChange}
+              />
+            </div>
+          </div>
+          <Button onClick={startAnalysis} className="w-full text-lg mt-4">
+            Start AI Analysis <ChevronRight size={20} />
+          </Button>
+          <div className="flex justify-center gap-8 pt-2 text-xs font-medium text-neutral-500 uppercase tracking-widest">
+            <span className="flex items-center gap-2">
+              <Lock size={12} /> No card required
+            </span>
+            <span className="flex items-center gap-2">
+              <Sparkles size={12} /> 10s analysis
+            </span>
+            <span className="flex items-center gap-2">
+              <ShieldCheck size={12} /> We never sell or share your data
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const LoadingStep = ({ formData, onSnapshot, onComplete }) => {
+  const [text, setText] = useState("");
+  const steps = [
+    "Extracting site structure...",
+    "Detecting competitors...",
+    "Mapping ICP & behaviors...",
+    "Reading brand tone...",
+    "Preparing marketing blueprint...",
+  ];
+
+  useEffect(() => {
+    let index = 0;
+    let isMounted = true;
+    const interval = setInterval(() => {
+      setText(steps[index % steps.length]);
+      index += 1;
+    }, 1500);
+
+    const runAnalysis = async () => {
+      const snapshot = await fetchWebsiteSnapshot(formData?.website);
+      if (isMounted && onSnapshot) {
+        onSnapshot(snapshot);
+      }
+      const results = await fetchBrandAnalysis(formData, snapshot);
+      if (isMounted) {
+        clearInterval(interval);
+        onComplete(results);
+      }
+    };
+
+    runAnalysis();
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [formData, onComplete, onSnapshot]);
+
+  return (
+    <div className="flex flex-col items-center justify-center h-[80vh] w-full text-center space-y-12 animate-fade-in relative overflow-hidden">
+      <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_center,rgba(212,175,55,0.08)_0%,transparent_70%)]" />
+      <div className="relative w-72 h-72 flex items-center justify-center">
+        <div className="absolute inset-0 bg-[#D4AF37]/5 blur-3xl rounded-full animate-pulse" />
+        <div className="absolute inset-0 border border-[#D4AF37]/20 rounded-full border-dashed animate-[spin_20s_linear_infinite]" />
+        <div className="absolute inset-8 border-t-2 border-r-2 border-[#D4AF37]/40 rounded-full animate-[spin_10s_linear_infinite_reverse]" />
+        <div className="absolute inset-16 border-b-2 border-l-2 border-[#D4AF37]/60 rounded-full animate-[spin_3s_linear_infinite]" />
+        <div className="absolute inset-4 rounded-full overflow-hidden opacity-30">
+          <div className="w-full h-full bg-[conic-gradient(from_0deg,transparent_0deg,transparent_270deg,#D4AF37_360deg)] animate-[spin_4s_linear_infinite]" />
+        </div>
+        <div className="relative z-10 w-24 h-24 bg-[#0B0B0B] rounded-full border border-[#D4AF37]/30 flex items-center justify-center shadow-[0_0_30px_rgba(212,175,55,0.2)]">
+          <div className="absolute inset-0 rounded-full animate-ping opacity-20 bg-[#D4AF37]" />
+          <Scan className="text-[#D4AF37] drop-shadow-[0_0_10px_rgba(212,175,55,0.8)]" size={40} />
+        </div>
+        <div className="absolute inset-0 animate-[spin_8s_linear_infinite]">
+          <div className="absolute top-0 left-1/2 w-2 h-2 bg-[#D4AF37] rounded-full blur-[1px] shadow-[0_0_10px_#D4AF37]" />
+        </div>
+        <div className="absolute inset-12 animate-[spin_12s_linear_infinite_reverse]">
+          <div className="absolute bottom-0 left-1/2 w-1.5 h-1.5 bg-white rounded-full blur-[1px]" />
+        </div>
+      </div>
+      <div className="space-y-4 z-10 relative">
+        <h2 className="text-3xl font-bold text-white tracking-tight">
+          Hang tight — analyzing <span className={TEXT_GRADIENT}>your brand</span>...
+        </h2>
+        <div className="flex items-center justify-center gap-3">
+          <div className="w-1.5 h-1.5 bg-[#D4AF37] rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+          <div className="w-1.5 h-1.5 bg-[#D4AF37] rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+          <div className="w-1.5 h-1.5 bg-[#D4AF37] rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+          <p className="text-[#D4AF37] font-mono text-sm tracking-[0.2em] uppercase ml-2">{text}</p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const ReportStep = ({ data, onNext }) => (
+  <div className="w-full max-w-6xl mx-auto py-12 animate-fade-up pb-32">
+    <div className="flex justify-between items-end mb-12 border-b border-white/10 pb-8">
+      <div>
+        <h2 className="text-4xl font-bold text-white mb-2">Your Brand Intelligence Report.</h2>
+        <p className="text-neutral-400">Deep strategic insights generated from your digital footprint.</p>
+      </div>
+      <Button onClick={onNext} variant="primary">
+        Next: Generate Your UGC Ad <ChevronRight size={20} />
+      </Button>
+    </div>
+    <div className="grid grid-cols-12 gap-6">
+      <Card className="col-span-12 md:col-span-4 space-y-6">
+        <GoldIcon icon={Globe} />
+        <h3 className="text-xl font-bold text-white">Business Profile</h3>
+        <div className="space-y-4">
+          {Object.entries(data.business).map(([key, value]) => (
+            <div key={key}>
+              <div className="text-xs text-neutral-500 uppercase tracking-widest mb-1">{key}</div>
+              <div className="text-white font-medium">{value}</div>
+            </div>
+          ))}
+        </div>
+      </Card>
+      <Card className="col-span-12 md:col-span-8">
+        <div className="flex items-center gap-4 mb-6">
+          <GoldIcon icon={Activity} />
+          <h3 className="text-xl font-bold text-white">SWOT Analysis</h3>
+        </div>
+        <div className="grid grid-cols-2 gap-6">
+          <div>
+            <div className="text-[#D4AF37] text-sm font-bold mb-3 uppercase">Strengths</div>
+            <ul className="space-y-2">
+              {data.swot.strengths.map((item) => (
+                <li key={item} className="text-neutral-300 text-sm flex gap-2">
+                  <div className="w-1 h-1 bg-[#D4AF37] rounded-full mt-2" />
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <div className="text-red-400 text-sm font-bold mb-3 uppercase">Weaknesses</div>
+            <ul className="space-y-2">
+              {data.swot.weaknesses.map((item) => (
+                <li key={item} className="text-neutral-300 text-sm flex gap-2">
+                  <div className="w-1 h-1 bg-red-400 rounded-full mt-2" />
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <div className="text-green-400 text-sm font-bold mb-3 uppercase">Opportunities</div>
+            <ul className="space-y-2">
+              {data.swot.opportunities.map((item) => (
+                <li key={item} className="text-neutral-300 text-sm flex gap-2">
+                  <div className="w-1 h-1 bg-green-400 rounded-full mt-2" />
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <div className="text-orange-400 text-sm font-bold mb-3 uppercase">Threats</div>
+            <ul className="space-y-2">
+              {data.swot.threats.map((item) => (
+                <li key={item} className="text-neutral-300 text-sm flex gap-2">
+                  <div className="w-1 h-1 bg-orange-400 rounded-full mt-2" />
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </Card>
+      <Card className="col-span-12 md:col-span-6">
+        <div className="flex items-center gap-4 mb-6">
+          <GoldIcon icon={Target} />
+          <h3 className="text-xl font-bold text-white">Ideal Customer Profile</h3>
+        </div>
+        <div className="space-y-4">
+          <div className="flex gap-2 flex-wrap">
+            {data.icp.personas.map((persona) => (
+              <span
+                key={persona}
+                className="px-3 py-1 bg-[#D4AF37]/10 border border-[#D4AF37]/20 text-[#D4AF37] rounded-full text-xs font-bold uppercase tracking-wide"
+              >
+                {persona}
+              </span>
+            ))}
+          </div>
+          <div className="grid grid-cols-2 gap-4 pt-2">
+            <div>
+              <h4 className="text-white text-sm font-bold mb-2">Demographics</h4>
+              {data.icp.demographics.map((item) => (
+                <div key={item} className="text-neutral-400 text-sm">
+                  {item}
+                </div>
+              ))}
+            </div>
+            <div>
+              <h4 className="text-white text-sm font-bold mb-2">Interests</h4>
+              {data.icp.interests.map((item) => (
+                <div key={item} className="text-neutral-400 text-sm">
+                  {item}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </Card>
+      <Card className="col-span-12 md:col-span-6">
+        <div className="flex items-center gap-4 mb-6">
+          <GoldIcon icon={Layers} />
+          <h3 className="text-xl font-bold text-white">Detected Assets</h3>
+        </div>
+        {data.assets.images?.length ? (
+          <div className="flex gap-4 overflow-x-auto pb-2">
+            {data.assets.images.map((src, idx) => (
+              <div
+                key={`${src}-${idx}`}
+                className="w-36 h-28 bg-neutral-900 rounded-lg border border-white/5 overflow-hidden shrink-0"
+              >
+                <img src={src} alt="Detected brand asset" className="w-full h-full object-cover" />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="flex gap-4 overflow-hidden relative">
+            <div className="w-32 h-32 bg-neutral-900 rounded-lg border border-white/5 flex items-center justify-center text-neutral-700">
+              Logo
+            </div>
+            <div className="w-48 h-32 bg-neutral-900 rounded-lg border border-white/5 flex items-center justify-center text-neutral-700">
+              Hero Img 1
+            </div>
+            <div className="w-48 h-32 bg-neutral-900 rounded-lg border border-white/5 flex items-center justify-center text-neutral-700">
+              Hero Img 2
+            </div>
+            <div className="absolute right-0 top-0 h-full w-20 bg-gradient-to-l from-[#0B0B0B] to-transparent" />
+          </div>
+        )}
+        <div className="mt-4">
+          <div className="text-xs text-neutral-500 uppercase tracking-widest mb-1">Detected Headline</div>
+          <div className="text-white italic">
+            {data.assets.headlines?.length ? `"${data.assets.headlines[0]}"` : "No headline detected"}
+          </div>
+        </div>
+      </Card>
+    </div>
+  </div>
+);
+
+const CreativeLoadingStep = ({ formData, snapshot, onComplete }) => {
+  const [text, setText] = useState("");
+  const steps = [
+    "Writing UGC script...",
+    "Creating Sora/VEO scenes...",
+    "Crafting voice & pacing...",
+    "Writing headlines...",
+    "Writing primary text...",
+  ];
+
+  useEffect(() => {
+    let index = 0;
+    let isMounted = true;
+    const interval = setInterval(() => {
+      setText(steps[index % steps.length]);
+      index += 1;
+    }, 1200);
+
+    const runCreative = async () => {
+      const results = await fetchCreativeAssets(formData, snapshot);
+      if (isMounted) {
+        clearInterval(interval);
+        onComplete(results);
+      }
+    };
+
+    runCreative();
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [formData, snapshot, onComplete]);
+
+  return (
+    <div className="flex flex-col items-center justify-center h-[80vh] w-full text-center space-y-8 animate-fade-in">
+      <div className="w-64 h-2 bg-neutral-900 rounded-full overflow-hidden relative">
+        <div className="absolute inset-0 bg-neutral-800" />
+        <div
+          className={`absolute top-0 left-0 h-full ${GOLD_GRADIENT} w-1/3 animate-[slideRight_1.5s_ease-in-out_infinite]`}
+        />
+        <div className="absolute top-0 left-0 h-full w-full bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
+      </div>
+      <div className="space-y-4">
+        <h2 className="text-3xl font-bold text-white">Creating Your AI-Generated Ad Assets...</h2>
+        <div className="flex items-center justify-center gap-3 text-[#D4AF37] font-mono text-sm tracking-widest uppercase">
+          <Cpu className="animate-pulse" size={16} /> {text}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const CreativeRevealStep = ({ data, onNext }) => (
+  <div className="w-full max-w-5xl mx-auto py-12 animate-fade-up">
+    <div className="text-center mb-12">
+      <h2 className="text-4xl font-bold text-white mb-3">Your AI-Generated Creative Is Ready.</h2>
+      <p className="text-neutral-400">Review your automated campaign assets below.</p>
+    </div>
+    <div className="grid grid-cols-12 gap-8">
+      <div className="col-span-12 md:col-span-6">
+        <div className="aspect-[9/16] bg-black rounded-[32px] border-[4px] border-[#1a1a1a] shadow-2xl relative overflow-hidden group">
+          <div className="absolute inset-0 bg-neutral-900 flex items-center justify-center">
+            <Video size={48} className="text-neutral-700" />
+          </div>
+          <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+            <div className="w-20 h-20 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20">
+              <Play size={32} className="text-white ml-1" />
+            </div>
+          </div>
+          <div className="absolute bottom-8 left-8 right-8 h-1 bg-white/20 rounded-full overflow-hidden">
+            <div className="w-1/3 h-full bg-white" />
+          </div>
+        </div>
+      </div>
+      <div className="col-span-12 md:col-span-6 space-y-6">
+        <Card className="space-y-4">
+          <h3 className="text-sm text-[#D4AF37] font-bold uppercase tracking-widest">Headline Variations</h3>
+          <div className="space-y-3">
+            {data.headlines.map((headline, index) => (
+              <div
+                key={index}
+                className="p-4 bg-white/5 rounded-xl border border-white/5 text-white text-sm font-medium hover:border-[#D4AF37]/30 transition-colors cursor-pointer"
+              >
+                {headline}
+              </div>
+            ))}
+          </div>
+        </Card>
+        <Card className="space-y-4">
+          <h3 className="text-sm text-[#D4AF37] font-bold uppercase tracking-widest">Primary Text</h3>
+          <div className="p-4 bg-white/5 rounded-xl border border-white/5 text-neutral-300 text-sm leading-relaxed">
+            {data.primaryText}
+          </div>
+        </Card>
+        <Card className="space-y-4">
+          <h3 className="text-sm text-[#D4AF37] font-bold uppercase tracking-widest">CTA Recommendations</h3>
+          <div className="flex gap-3">
+            {data.ctas.map((cta) => (
+              <span
+                key={cta}
+                className="px-4 py-2 bg-neutral-900 border border-white/10 rounded-lg text-white text-sm font-medium"
+              >
+                {cta}
+              </span>
+            ))}
+          </div>
+        </Card>
+        <div className="flex gap-4 pt-4 flex-col sm:flex-row">
+          <Button variant="outline" className="flex-1">
+            <Download size={18} /> Download Assets
+          </Button>
+          <Button variant="primary" onClick={onNext} className="flex-1">
+            Next: Deploy Campaign <ChevronRight size={18} />
+          </Button>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+const DemoVideoStep = ({ onNext }) => (
+  <div className="flex flex-col items-center justify-center min-h-[80vh] w-full max-w-5xl mx-auto text-center space-y-10 animate-fade-up px-4">
+    <div className="space-y-4">
+      <h2 className="text-4xl md:text-5xl font-bold text-white">See AdNavigator in Action.</h2>
+      <p className="text-neutral-400 text-lg max-w-2xl mx-auto">
+        Watch how our AI builds, launches, and optimizes campaigns in seconds.
+      </p>
+    </div>
+    <div className="w-full aspect-video bg-black rounded-[32px] border border-white/10 shadow-[0_0_50px_rgba(212,175,55,0.15)] relative overflow-hidden group">
+      <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1533750516457-a7f992034fec?q=80&w=2600&auto=format&fit=crop')] bg-cover bg-center opacity-40 group-hover:opacity-30 transition-opacity duration-700" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div className="w-24 h-24 rounded-full bg-[#D4AF37]/90 backdrop-blur-md flex items-center justify-center shadow-[0_0_40px_rgba(212,175,55,0.4)] cursor-pointer hover:scale-110 transition-transform duration-300 group-hover:shadow-[0_0_60px_rgba(212,175,55,0.6)]">
+          <Play size={40} className="text-black fill-black ml-2" />
+        </div>
+      </div>
+      <div className="absolute bottom-8 left-8 right-8 flex justify-between items-end">
+        <div className="text-left">
+          <h3 className="text-white font-bold text-xl mb-1">AdNavigator Platform Tour</h3>
+          <p className="text-neutral-400 text-sm">02:14 • 4K Quality</p>
+        </div>
+        <div className="flex gap-2">
+          <div className="px-3 py-1 rounded-full bg-white/10 backdrop-blur border border-white/10 text-xs font-bold uppercase tracking-widest text-white">
+            AI Demo
+          </div>
+        </div>
+      </div>
+    </div>
+    <div className="pt-4">
+      <Button onClick={onNext} className="w-full md:w-auto text-lg px-12 py-5 shadow-2xl">
+        Ready to launch? View Plans <ArrowRight size={20} className="ml-2" />
+      </Button>
+    </div>
+  </div>
+);
+
+const DeployStep = ({ onNext, onWatchDemo }) => (
+  <div className="flex flex-col items-center justify-center min-h-[70vh] w-full max-w-xl mx-auto text-center space-y-10 animate-fade-up">
+    <div className="space-y-4">
+      <h2 className="text-4xl font-bold text-white">One-click deployment.</h2>
+      <p className="text-neutral-400 text-lg">Push this campaign directly to your Meta Ads Manager.</p>
+    </div>
+    <Card className="w-full space-y-8 py-10">
+      <Button
+        onClick={onNext}
+        className="w-full text-lg shadow-blue-900/20 hover:shadow-blue-500/20 bg-[#1877F2] hover:bg-[#166fe5] border-none text-white"
+      >
+        <Facebook size={20} className="fill-white" /> Connect Facebook
+      </Button>
+      <div className="space-y-3 bg-neutral-900/50 p-4 rounded-xl border border-white/5">
+        <div className="flex items-center justify-center gap-2 text-neutral-400 text-xs uppercase tracking-widest font-bold">
+          <Lock size={12} /> Data Privacy Guarantee
+        </div>
+        <p className="text-neutral-500 text-xs leading-relaxed max-w-sm mx-auto">
+          Your advertising data is never used, stored, or sold. You maintain 100% control and can disconnect at any time.
+        </p>
+      </div>
+    </Card>
+    <button
+      onClick={onWatchDemo}
+      className="flex items-center gap-2 text-neutral-500 hover:text-white transition-colors group"
+    >
+      <MonitorPlay size={16} />
+      <span className="border-b border-transparent group-hover:border-white transition-all">
+        Not ready to connect? Watch a live demo.
+      </span>
+    </button>
+  </div>
+);
+
+const PricingStep = ({ onSelect }) => (
+  <div className="w-full max-w-6xl mx-auto py-12 animate-fade-up">
+    <div className="text-center mb-16 space-y-4">
+      <h2 className="text-4xl md:text-5xl font-bold text-white">
+        Your AI-powered account is ready.
+        <br />
+        Activate your workspace.
+      </h2>
+    </div>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+      <div className="relative group cursor-pointer" onClick={() => onSelect("startup")}>
+        <div className="absolute -inset-[1px] bg-gradient-to-b from-white/10 to-transparent rounded-[24px] opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+        <Card className="h-full border-white/10 group-hover:border-[#D4AF37]/50" hoverEffect={false}>
+          <div className="mb-8">
+            <h3 className="text-2xl font-bold text-white mb-2">Startup</h3>
+            <div className="flex items-baseline gap-1">
+              <span className="text-4xl font-bold text-white">$97</span>
+              <span className="text-neutral-500">/mo</span>
+            </div>
+          </div>
+          <ul className="space-y-4 mb-8">
+            {[
+              "10 UGC videos per month",
+              "Up to 5 client profiles",
+              "Up to 5 ad accounts",
+              "Full strategies + ICP",
+              "Auto-campaign builds",
+              "7-day money-back guarantee",
+            ].map((feature) => (
+              <li key={feature} className="flex items-center gap-3 text-neutral-300 text-sm">
+                <CheckCircle size={16} className="text-[#D4AF37]" /> {feature}
+              </li>
+            ))}
+          </ul>
+          <Button variant="outline" className="w-full">
+            Select Startup
+          </Button>
+        </Card>
+      </div>
+      <div className="relative group cursor-pointer" onClick={() => onSelect("agency")}>
+        <div className="absolute -inset-[2px] rounded-[26px] bg-gradient-to-b from-[#D4AF37] to-[#AA8220] opacity-50 group-hover:opacity-100 blur-sm transition-opacity duration-500" />
+        <Card className="h-full bg-[#0F0F0F] relative z-10" hoverEffect={false}>
+          <div className="absolute top-0 right-0 bg-[#D4AF37] text-black text-[10px] font-bold px-3 py-1 rounded-bl-xl rounded-tr-[22px] tracking-widest uppercase">
+            Recommended
+          </div>
+          <div className="mb-8">
+            <h3 className="text-2xl font-bold text-white mb-2 flex items-center gap-2">
+              Agency <Star size={16} className="fill-[#D4AF37] text-[#D4AF37]" />
+            </h3>
+            <div className="flex items-baseline gap-1">
+              <span className="text-4xl font-bold text-[#D4AF37]">$297</span>
+              <span className="text-neutral-500">/mo</span>
+            </div>
+          </div>
+          <ul className="space-y-4 mb-8">
+            {[
+              "30 UGC videos per month",
+              "Unlimited client profiles",
+              "Unlimited FB connections",
+              "Competitor Ad Spy",
+              "Deep Meta API sync",
+              "Priority support",
+              "7-day money-back guarantee",
+            ].map((feature) => (
+              <li key={feature} className="flex items-center gap-3 text-white text-sm">
+                <div className="p-1 rounded-full bg-[#D4AF37]/20">
+                  <CheckCircle size={14} className="text-[#D4AF37]" />
+                </div>
+                {feature}
+              </li>
+            ))}
+          </ul>
+          <Button variant="primary" className="w-full shadow-lg shadow-[#D4AF37]/20">
+            Select Agency
+          </Button>
+        </Card>
+      </div>
+    </div>
+  </div>
+);
+
+export default function App() {
+  const [step, setStep] = useState(1);
+  const [formData, setFormData] = useState({});
+  const [analysisData, setAnalysisData] = useState(null);
+  const [creativeData, setCreativeData] = useState(null);
+  const [siteSnapshot, setSiteSnapshot] = useState(null);
+
+  const handleAnalysisComplete = (data) => {
+    setAnalysisData(data || generateAnalysis(formData?.website));
+  };
+
+  const handleCreativeComplete = (data) => {
+    setCreativeData(data || generateCreative(formData?.website));
+  };
+
+  useEffect(() => {
+    if (analysisData && step < 3) {
+      setStep(3);
+    }
+  }, [analysisData, step]);
+
+  useEffect(() => {
+    if (creativeData && step < 5) {
+      setStep(5);
+    }
+  }, [creativeData, step]);
+
+  const startAnalysis = () => {
+    setSiteSnapshot(null);
+    setAnalysisData(null);
+    setCreativeData(null);
+    setStep(2);
+  };
+
+  return (
+    <div className="min-h-screen bg-[#000000] font-sans text-white overflow-x-hidden selection:bg-[#D4AF37]/30 relative">
+      <div className="fixed top-0 left-0 w-full h-1.5 bg-neutral-900 z-50">
+        <div
+          className={`h-full ${GOLD_GRADIENT} shadow-[0_0_15px_rgba(212,175,55,0.5)] transition-all duration-700 ease-in-out`}
+          style={{ width: `${Math.min((step / 7) * 100, 100)}%` }}
+        />
+      </div>
+      <div className="fixed inset-0 pointer-events-none z-0">
+        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.03] brightness-100 contrast-150" />
+        <div className="absolute top-[-20%] left-[20%] w-[600px] h-[600px] bg-[#D4AF37]/5 rounded-full blur-[120px]" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-[#AA8220]/5 rounded-full blur-[100px]" />
+      </div>
+      <div className="relative z-10 p-6 md:p-12">
+        <header className="flex justify-between items-center max-w-7xl mx-auto mb-16">
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-xl ${GOLD_GRADIENT} flex items-center justify-center ${GOLD_GLOW}`}>
+              <span className="text-black font-bold text-xl">A</span>
+            </div>
+            <span className="font-bold text-xl tracking-tight text-white hidden md:block">AdNavigator</span>
+          </div>
+          {step > 1 && (
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setStep((prev) => (Math.floor(prev) === 6 && prev !== 6 ? 6 : Math.max(1, Math.floor(prev - 1))))}
+                className="flex items-center gap-2 text-neutral-500 hover:text-white transition-colors text-sm font-medium"
+              >
+                <ChevronLeft size={16} /> Back
+              </button>
+              {step < 7 && (
+                <div className="text-[10px] font-mono text-neutral-600 uppercase tracking-widest border border-white/10 px-3 py-1 rounded-full">
+                  Demo Sequence // Step 0{Math.floor(step)}
+                </div>
+              )}
+            </div>
+          )}
+          {step === 1 && step < 7 && (
+            <div className="text-[10px] font-mono text-neutral-600 uppercase tracking-widest border border-white/10 px-3 py-1 rounded-full">
+              Demo Sequence // Step 0{step}
+            </div>
+          )}
+        </header>
+        <main className="max-w-7xl mx-auto">
+          {step === 1 && <IntakeStep formData={formData} setFormData={setFormData} onNext={startAnalysis} />}
+          {step === 2 && (
+            <LoadingStep
+              formData={formData}
+              onSnapshot={setSiteSnapshot}
+              onComplete={handleAnalysisComplete}
+            />
+          )}
+          {step === 3 && analysisData && <ReportStep data={analysisData} onNext={() => setStep(4)} />}
+          {step === 4 && (
+            <CreativeLoadingStep
+              formData={formData}
+              snapshot={siteSnapshot}
+              onComplete={handleCreativeComplete}
+            />
+          )}
+          {step === 5 && creativeData && <CreativeRevealStep data={creativeData} onNext={() => setStep(6)} />}
+          {step === 6 && (
+            <DeployStep
+              onNext={() => setStep(7)}
+              onWatchDemo={() => setStep(6.1)}
+            />
+          )}
+          {step === 6.1 && <DemoVideoStep onNext={() => setStep(7)} />}
+          {step === 7 && <PricingStep onSelect={() => alert("Redirecting to Stripe...")} />}
+        </main>
+      </div>
+      <style>{`
+        @keyframes shimmer {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(100%); }
+        }
+        @keyframes slideRight {
+          0%, 100% { transform: translateX(0); }
+          50% { transform: translateX(200%); }
+        }
+      `}</style>
+    </div>
+  );
+}
