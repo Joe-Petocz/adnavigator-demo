@@ -19,8 +19,11 @@ import {
   Star,
   Target,
   Video,
+  AlertCircle,
+  Loader2,
 } from "lucide-react";
 import "./index.css";
+import { deployAdCampaign } from "./facebookIntegration";
 
 const GOLD_GRADIENT = "bg-gradient-to-r from-[#FDFBF7] via-[#D4AF37] to-[#AA8220]";
 const TEXT_GRADIENT =
@@ -818,39 +821,102 @@ const DemoVideoStep = ({ onNext }) => (
   </div>
 );
 
-const DeployStep = ({ onNext, onWatchDemo }) => (
-  <div className="flex flex-col items-center justify-center min-h-[70vh] w-full max-w-xl mx-auto text-center space-y-10 animate-fade-up">
-    <div className="space-y-4">
-      <h2 className="text-4xl font-bold text-white">One-click deployment.</h2>
-      <p className="text-neutral-400 text-lg">Push this campaign directly to your Meta Ads Manager.</p>
-    </div>
-    <Card className="w-full space-y-8 py-10">
-      <Button
-        onClick={onNext}
-        className="w-full text-lg shadow-blue-900/20 hover:shadow-blue-500/20 bg-[#1877F2] hover:bg-[#166fe5] border-none text-white"
-      >
-        <Facebook size={20} className="fill-white" /> Connect Facebook
-      </Button>
-      <div className="space-y-3 bg-neutral-900/50 p-4 rounded-xl border border-white/5">
-        <div className="flex items-center justify-center gap-2 text-neutral-400 text-xs uppercase tracking-widest font-bold">
-          <Lock size={12} /> Data Privacy Guarantee
-        </div>
-        <p className="text-neutral-500 text-xs leading-relaxed max-w-sm mx-auto">
-          Your advertising data is never used, stored, or sold. You maintain 100% control and can disconnect at any time.
-        </p>
+const DeployStep = ({ onNext, onWatchDemo, creativeData, formData }) => {
+  const [isDeploying, setIsDeploying] = useState(false);
+  const [deploymentResult, setDeploymentResult] = useState(null);
+
+  const handleFacebookConnect = async () => {
+    setIsDeploying(true);
+    setDeploymentResult(null);
+
+    try {
+      const result = await deployAdCampaign(creativeData, formData);
+      setDeploymentResult(result);
+
+      if (result.success) {
+        // Wait 2 seconds to show success message, then proceed
+        setTimeout(() => {
+          onNext();
+        }, 2000);
+      }
+    } catch (error) {
+      setDeploymentResult({
+        success: false,
+        error: error.message || 'Failed to connect to Facebook'
+      });
+    } finally {
+      setIsDeploying(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[70vh] w-full max-w-xl mx-auto text-center space-y-10 animate-fade-up">
+      <div className="space-y-4">
+        <h2 className="text-4xl font-bold text-white">One-click deployment.</h2>
+        <p className="text-neutral-400 text-lg">Push this campaign directly to your Meta Ads Manager.</p>
       </div>
-    </Card>
-    <button
-      onClick={onWatchDemo}
-      className="flex items-center gap-2 text-neutral-500 hover:text-white transition-colors group"
-    >
-      <MonitorPlay size={16} />
-      <span className="border-b border-transparent group-hover:border-white transition-all">
-        Not ready to connect? Watch a live demo.
-      </span>
-    </button>
-  </div>
-);
+      <Card className="w-full space-y-8 py-10">
+        <Button
+          onClick={handleFacebookConnect}
+          disabled={isDeploying}
+          className="w-full text-lg shadow-blue-900/20 hover:shadow-blue-500/20 bg-[#1877F2] hover:bg-[#166fe5] border-none text-white disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isDeploying ? (
+            <>
+              <Loader2 size={20} className="animate-spin" /> Connecting...
+            </>
+          ) : (
+            <>
+              <Facebook size={20} className="fill-white" /> Connect Facebook
+            </>
+          )}
+        </Button>
+
+        {deploymentResult && (
+          <div className={`p-4 rounded-xl border ${
+            deploymentResult.success
+              ? 'bg-green-900/20 border-green-500/30'
+              : 'bg-red-900/20 border-red-500/30'
+          }`}>
+            <div className="flex items-center justify-center gap-2 mb-2">
+              {deploymentResult.success ? (
+                <CheckCircle size={20} className="text-green-400" />
+              ) : (
+                <AlertCircle size={20} className="text-red-400" />
+              )}
+              <p className={`font-semibold ${
+                deploymentResult.success ? 'text-green-400' : 'text-red-400'
+              }`}>
+                {deploymentResult.success ? 'Success!' : 'Error'}
+              </p>
+            </div>
+            <p className="text-sm text-neutral-300">
+              {deploymentResult.message || deploymentResult.error}
+            </p>
+          </div>
+        )}
+
+        <div className="space-y-3 bg-neutral-900/50 p-4 rounded-xl border border-white/5">
+          <div className="flex items-center justify-center gap-2 text-neutral-400 text-xs uppercase tracking-widest font-bold">
+            <Lock size={12} /> Data Privacy Guarantee
+          </div>
+          <p className="text-neutral-500 text-xs leading-relaxed max-w-sm mx-auto">
+            Your advertising data is never used, stored, or sold. You maintain 100% control and can disconnect at any time.
+          </p>
+        </div>
+      </Card>
+      <button
+        onClick={onWatchDemo}
+        className="flex items-center gap-2 text-neutral-500 hover:text-white transition-colors group"
+      >
+        <MonitorPlay size={16} />
+        <span className="border-b border-transparent group-hover:border-white transition-all">
+          Not ready to connect? Watch a live demo.
+        </span>
+      </button>
+    </div>
+  );
+};
 
 const PricingStep = ({ onSelect }) => (
   <div className="w-full max-w-6xl mx-auto py-12 animate-fade-up">
@@ -1031,6 +1097,8 @@ export default function App() {
             <DeployStep
               onNext={() => setStep(7)}
               onWatchDemo={() => setStep(6.1)}
+              creativeData={creativeData}
+              formData={formData}
             />
           )}
           {step === 6.1 && <DemoVideoStep onNext={() => setStep(7)} />}
