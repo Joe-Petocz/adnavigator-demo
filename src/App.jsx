@@ -42,13 +42,27 @@ const normalizeUrl = (rawUrl) => {
 
 const fetchWebsiteSnapshot = async (rawUrl) => {
   const normalized = normalizeUrl(rawUrl);
-  if (!normalized) return null;
+  if (!normalized) {
+    console.warn("Invalid URL provided for snapshot");
+    return null;
+  }
 
   try {
-    const response = await fetch(`https://r.jina.ai/${normalized}`, { method: "GET" });
-    if (!response.ok) throw new Error("Snapshot request failed.");
+    console.log("Fetching website snapshot for:", normalized);
+    const response = await fetch(`https://r.jina.ai/${normalized}`, {
+      method: "GET",
+      headers: {
+        'Accept': 'text/plain'
+      }
+    });
+
+    if (!response.ok) {
+      console.error(`Jina AI fetch failed with status ${response.status}`);
+      throw new Error(`Snapshot request failed with status ${response.status}`);
+    }
 
     const payload = await response.text();
+    console.log("Successfully fetched website snapshot");
     const [metaBlock = "", markdownBlock = ""] = payload.split("Markdown Content:");
 
     const titleMatch = metaBlock.match(/Title:\s*(.+)/i);
@@ -119,8 +133,16 @@ const fetchWebsiteSnapshot = async (rawUrl) => {
       images: extractImages(),
     };
   } catch (error) {
-    console.error("Failed to fetch site snapshot", error);
-    return null;
+    console.error("Failed to fetch site snapshot:", error.message);
+    // Return minimal snapshot data instead of null
+    return {
+      url: normalized,
+      title: "",
+      description: "",
+      text: "",
+      headlines: [],
+      images: []
+    };
   }
 };
 
@@ -226,10 +248,14 @@ const fetchFromOpenAI = async ({ systemPrompt, userPayload }) => {
 };
 
 const fetchBrandAnalysis = async (formData, siteSnapshot) => {
-  const fallback = generateAnalysis(formData?.website);
+  const websiteName = formData?.website || "MyBrand.com";
+  const fallback = generateAnalysis(websiteName);
+
   try {
     const fullName = `${formData?.firstName || ''} ${formData?.lastName || ''}`.trim();
     const location = `${formData?.city || ''}${formData?.city && formData?.state ? ', ' : ''}${formData?.state || ''}`.trim();
+
+    console.log("Starting brand analysis for:", websiteName);
 
     const payload = JSON.stringify({
       businessOwner: fullName || 'Business Owner',
@@ -267,7 +293,7 @@ const fetchBrandAnalysis = async (formData, siteSnapshot) => {
 
     const fallbackHeadlines = ensureArray(siteSnapshot?.headlines, fallback.assets.headlines);
 
-    return {
+    const result = {
       business: safeBusiness,
       swot: {
         strengths: ensureArray(data.swot?.strengths, fallback.swot.strengths),
@@ -286,15 +312,21 @@ const fetchBrandAnalysis = async (formData, siteSnapshot) => {
         images: ensureArray(siteSnapshot?.images, fallback.assets.images),
       },
     };
+    console.log("Brand analysis successful:", result);
+    return result;
   } catch (error) {
     console.error("OpenAI analysis failed, using fallback data.", error);
+    console.log("Using fallback analysis data");
     return fallback;
   }
 };
 
 const fetchCreativeAssets = async (formData, siteSnapshot) => {
-  const fallback = generateCreative(formData?.website);
+  const websiteName = formData?.website || "MyBrand.com";
+  const fallback = generateCreative(websiteName);
+
   try {
+    console.log("Starting creative generation for:", websiteName);
     const fullName = `${formData?.firstName || ''} ${formData?.lastName || ''}`.trim();
 
     const payload = JSON.stringify({
@@ -319,13 +351,16 @@ const fetchCreativeAssets = async (formData, siteSnapshot) => {
       userPayload: `Create Facebook ad creative for this business. Use their actual website content, messaging, and value props. Make it specific and compelling:\n\n${payload}\n\nImportant:\n- Headlines must grab attention and be specific to their product/service\n- Primary text should highlight their unique value proposition from the website\n- Include social proof or urgency if evident from their site\n- CTAs should match their business model (e.g., 'Book Now' for services, 'Shop Now' for products)\n- Avoid generic phrases like 'Discover More' or 'Learn More' unless that's truly their CTA`,
     });
 
-    return {
+    const result = {
       headlines: ensureArray(data.headlines, fallback.headlines),
       primaryText: ensureString(data.primaryText, fallback.primaryText),
       ctas: ensureArray(data.ctas, fallback.ctas),
     };
+    console.log("Creative generation successful:", result);
+    return result;
   } catch (error) {
     console.error("OpenAI creative generation failed, using fallback data.", error);
+    console.log("Using fallback creative data");
     return fallback;
   }
 };
@@ -379,9 +414,9 @@ const IntakeStep = ({ formData, setFormData, onNext }) => {
   };
 
   const startAnalysis = () => {
-    if (!formData.website) {
-      setFormData({ ...formData, website: "MyBrand.com" });
-    }
+    // Make sure we have a website URL, use a real demo site if not provided
+    const websiteUrl = formData.website?.trim() || "example.com";
+    setFormData({ ...formData, website: websiteUrl });
     onNext();
   };
 
