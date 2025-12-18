@@ -43,8 +43,15 @@ const normalizeUrl = (rawUrl) => {
 const fetchWebsiteSnapshot = async (rawUrl) => {
   const normalized = normalizeUrl(rawUrl);
   if (!normalized) {
-    console.warn("Invalid URL provided for snapshot");
-    return null;
+    console.warn("Invalid URL provided for snapshot, returning empty snapshot");
+    return {
+      url: rawUrl || "",
+      title: "",
+      description: "",
+      text: "",
+      headlines: [],
+      images: []
+    };
   }
 
   try {
@@ -415,8 +422,9 @@ const IntakeStep = ({ formData, setFormData, onNext }) => {
 
   const startAnalysis = () => {
     // Make sure we have a website URL, use a real demo site if not provided
-    const websiteUrl = formData.website?.trim() || "example.com";
-    setFormData({ ...formData, website: websiteUrl });
+    if (!formData.website || !formData.website.trim()) {
+      setFormData({ ...formData, website: "example.com" });
+    }
     onNext();
   };
 
@@ -539,13 +547,19 @@ const LoadingStep = ({ formData, onSnapshot, onComplete, onError }) => {
 
     const runAnalysis = async () => {
       try {
-        const snapshot = await fetchWebsiteSnapshot(formData?.website);
+        // Ensure we have a website URL to analyze
+        const websiteUrl = formData?.website?.trim() || "example.com";
+        console.log("Starting analysis with URL:", websiteUrl);
+
+        const snapshot = await fetchWebsiteSnapshot(websiteUrl);
         if (isMounted && onSnapshot) {
           onSnapshot(snapshot);
         }
-        const results = await fetchBrandAnalysis(formData, snapshot);
+
+        const results = await fetchBrandAnalysis({ ...formData, website: websiteUrl }, snapshot);
         if (isMounted) {
           clearInterval(interval);
+          console.log("Analysis complete, transitioning to results");
           onComplete(results);
         }
       } catch (error) {
@@ -553,7 +567,9 @@ const LoadingStep = ({ formData, onSnapshot, onComplete, onError }) => {
         if (isMounted) {
           clearInterval(interval);
           // Use fallback data on error
-          onComplete(generateAnalysis(formData?.website));
+          const websiteUrl = formData?.website || "MyBrand.com";
+          console.log("Using fallback data for:", websiteUrl);
+          onComplete(generateAnalysis(websiteUrl));
         }
       }
     };
