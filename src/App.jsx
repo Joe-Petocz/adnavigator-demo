@@ -182,38 +182,47 @@ const ensureString = (value, fallback) => {
 const fetchFromOpenAI = async ({ systemPrompt, userPayload }) => {
   const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
   if (!apiKey) {
-    throw new Error("Missing VITE_OPENAI_API_KEY environment variable.");
+    console.error("OpenAI API Key not found. Please set VITE_OPENAI_API_KEY in Railway environment variables.");
+    throw new Error("OpenAI API configuration missing. Using demo data instead.");
   }
 
-  const response = await fetch(OPENAI_ENDPOINT, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: OPENAI_MODEL,
-      temperature: 0.4,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPayload },
-      ],
-    }),
-  });
+  try {
+    const response = await fetch(OPENAI_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: OPENAI_MODEL,
+        temperature: 0.4,
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPayload },
+        ],
+      }),
+    });
 
-  if (!response.ok) {
-    const errorPayload = await response.json().catch(() => ({}));
-    throw new Error(
-      errorPayload?.error?.message || `OpenAI request failed with ${response.status}`
-    );
+    if (!response.ok) {
+      const errorPayload = await response.json().catch(() => ({}));
+      const errorMessage = errorPayload?.error?.message || `API request failed with status ${response.status}`;
+      console.error("OpenAI API Error:", errorMessage);
+      throw new Error(errorMessage);
+    }
+
+    const completion = await response.json();
+    const content = completion?.choices?.[0]?.message?.content;
+    if (!content) {
+      console.error("OpenAI response missing content");
+      throw new Error("Invalid API response format");
+    }
+
+    return JSON.parse(content);
+  } catch (error) {
+    console.error("OpenAI fetch error:", error);
+    throw error;
   }
-
-  const completion = await response.json();
-  const content = completion?.choices?.[0]?.message?.content;
-  if (!content) throw new Error("OpenAI response missing content.");
-
-  return JSON.parse(content);
 };
 
 const fetchBrandAnalysis = async (formData, siteSnapshot) => {
@@ -475,7 +484,7 @@ const IntakeStep = ({ formData, setFormData, onNext }) => {
   );
 };
 
-const LoadingStep = ({ formData, onSnapshot, onComplete }) => {
+const LoadingStep = ({ formData, onSnapshot, onComplete, onError }) => {
   const [text, setText] = useState("");
   const steps = [
     "Extracting site structure...",
@@ -494,14 +503,23 @@ const LoadingStep = ({ formData, onSnapshot, onComplete }) => {
     }, 1500);
 
     const runAnalysis = async () => {
-      const snapshot = await fetchWebsiteSnapshot(formData?.website);
-      if (isMounted && onSnapshot) {
-        onSnapshot(snapshot);
-      }
-      const results = await fetchBrandAnalysis(formData, snapshot);
-      if (isMounted) {
-        clearInterval(interval);
-        onComplete(results);
+      try {
+        const snapshot = await fetchWebsiteSnapshot(formData?.website);
+        if (isMounted && onSnapshot) {
+          onSnapshot(snapshot);
+        }
+        const results = await fetchBrandAnalysis(formData, snapshot);
+        if (isMounted) {
+          clearInterval(interval);
+          onComplete(results);
+        }
+      } catch (error) {
+        console.error("Analysis error:", error);
+        if (isMounted) {
+          clearInterval(interval);
+          // Use fallback data on error
+          onComplete(generateAnalysis(formData?.website));
+        }
       }
     };
 
@@ -722,10 +740,19 @@ const CreativeLoadingStep = ({ formData, snapshot, onComplete }) => {
     }, 1200);
 
     const runCreative = async () => {
-      const results = await fetchCreativeAssets(formData, snapshot);
-      if (isMounted) {
-        clearInterval(interval);
-        onComplete(results);
+      try {
+        const results = await fetchCreativeAssets(formData, snapshot);
+        if (isMounted) {
+          clearInterval(interval);
+          onComplete(results);
+        }
+      } catch (error) {
+        console.error("Creative generation error:", error);
+        if (isMounted) {
+          clearInterval(interval);
+          // Use fallback data on error
+          onComplete(generateCreative(formData?.website));
+        }
       }
     };
 
