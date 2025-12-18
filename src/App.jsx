@@ -60,9 +60,17 @@ const fetchWebsiteSnapshot = async (rawUrl) => {
       const headlines = [];
       const headingRegex = /^#{1,3}\s+(.*)$/gm;
       let match;
-      while ((match = headingRegex.exec(cleanMarkdown)) && headlines.length < 3) {
+      // Get up to 10 headlines
+      while ((match = headingRegex.exec(cleanMarkdown)) && headlines.length < 10) {
         const text = match[1].trim();
-        if (text && !headlines.includes(text)) headlines.push(text);
+        // Filter out common nav items and single words
+        if (text &&
+            !headlines.includes(text) &&
+            text.length > 5 &&
+            text.length < 100 &&
+            !text.match(/^(home|about|contact|menu|login|sign|cart|blog|shop)$/i)) {
+          headlines.push(text);
+        }
       }
       return headlines;
     };
@@ -72,18 +80,21 @@ const fetchWebsiteSnapshot = async (rawUrl) => {
       const seen = new Set();
       const imageRegex = /!\[[^\]]*\]\((https?:\/\/[^)]+)\)/g;
       let match;
-      while ((match = imageRegex.exec(cleanMarkdown)) && images.length < 4) {
+      // Get up to 8 product images
+      while ((match = imageRegex.exec(cleanMarkdown)) && images.length < 8) {
         const url = match[1].split("?")[0];
-        if (!seen.has(url)) {
+        // Filter out logos and icons
+        if (!seen.has(url) && !url.match(/(icon|logo|favicon|avatar|thumb)/i)) {
           seen.add(url);
           images.push(url);
         }
       }
 
+      // Fallback: look for direct image URLs
       const fallbackRegex = /(https?:\/\/[^\s)]+?\.(?:png|jpe?g|gif|webp))/gi;
-      while (images.length < 4 && (match = fallbackRegex.exec(cleanMarkdown))) {
+      while (images.length < 8 && (match = fallbackRegex.exec(cleanMarkdown))) {
         const url = match[1];
-        if (!seen.has(url)) {
+        if (!seen.has(url) && !url.match(/(icon|logo|favicon|avatar)/i)) {
           seen.add(url);
           images.push(url);
         }
@@ -92,11 +103,12 @@ const fetchWebsiteSnapshot = async (rawUrl) => {
       return images;
     };
 
+    // Extract more text for better analysis (5000 chars instead of 2000)
     const textSample = cleanMarkdown
       .replace(/[#>*_\-`]/g, " ")
       .replace(/\s+/g, " ")
       .trim()
-      .slice(0, 2000);
+      .slice(0, 5000);
 
     return {
       url: normalized,
@@ -207,28 +219,34 @@ const fetchFromOpenAI = async ({ systemPrompt, userPayload }) => {
 const fetchBrandAnalysis = async (formData, siteSnapshot) => {
   const fallback = generateAnalysis(formData?.website);
   try {
+    const fullName = `${formData?.firstName || ''} ${formData?.lastName || ''}`.trim();
+    const location = `${formData?.city || ''}${formData?.city && formData?.state ? ', ' : ''}${formData?.state || ''}`.trim();
+
     const payload = JSON.stringify({
+      businessOwner: fullName || 'Business Owner',
       companyName: formData?.website || "MyBrand.com",
-      location: formData?.city,
+      location: location || 'Not specified',
+      state: formData?.state,
+      city: formData?.city,
       phone: formData?.phone,
-      audienceRadius: formData?.radius,
-      contact: formData?.email,
-      site: siteSnapshot
+      email: formData?.email,
+      targetRadius: formData?.radius,
+      siteData: siteSnapshot
         ? {
             url: siteSnapshot.url,
             title: siteSnapshot.title,
-            description: siteSnapshot.description,
-            featuredHeadlines: siteSnapshot.headlines,
-            topImages: siteSnapshot.images,
-            textSample: siteSnapshot.text,
+            metaDescription: siteSnapshot.description,
+            extractedHeadlines: siteSnapshot.headlines,
+            productImages: siteSnapshot.images,
+            websiteContent: siteSnapshot.text,
           }
         : null,
     });
 
     const data = await fetchFromOpenAI({
       systemPrompt:
-        "You are a senior performance marketing strategist. Always respond with JSON shaped exactly like {business:{industry,location,positioning,segment},swot:{strengths[],weaknesses[],opportunities[],threats[]},icp:{demographics[],interests[],personas[]},assets:{headlines[]}}. Keep bullet arrays short, specific, and relevant to paid media planning.",
-      userPayload: `Generate an analysis for this company input: ${payload}`,
+        "You are an expert performance marketing strategist and brand analyst with 15+ years analyzing businesses for Meta/Facebook advertising campaigns. Your analysis must be data-driven, specific, and actionable for paid social media advertising. Always respond with valid JSON only, shaped exactly like {business:{industry,location,positioning,segment},swot:{strengths[],weaknesses[],opportunities[],threats[]},icp:{demographics[],interests[],behaviors[],personas[]},assets:{headlines[]}}}. Base your analysis on the actual website content, metadata, and business information provided. Be specific to THIS business - avoid generic responses.",
+      userPayload: `Analyze this business for a Facebook/Meta advertising campaign. Extract insights from their website content and structure. Provide specific, actionable intelligence:\n\n${payload}\n\nImportant:\n- Use the actual website title, description, and content to understand what they sell\n- Identify their specific industry (not just 'E-Commerce')\n- Determine their actual location from city/state provided\n- Create a positioning statement based on their messaging\n- Identify their likely target segment from website tone and offerings\n- SWOT should be specific to THIS business and their market\n- ICP should reflect who would actually buy from them based on their products/services\n- Include 3-5 specific headline variations found on their site`,
     });
 
     const safeBusiness = {
@@ -268,26 +286,28 @@ const fetchBrandAnalysis = async (formData, siteSnapshot) => {
 const fetchCreativeAssets = async (formData, siteSnapshot) => {
   const fallback = generateCreative(formData?.website);
   try {
+    const fullName = `${formData?.firstName || ''} ${formData?.lastName || ''}`.trim();
+
     const payload = JSON.stringify({
+      businessOwner: fullName,
       companyName: formData?.website || "MyBrand.com",
-      valueProp: "Premium AI-driven ad automation",
-      tone: "Premium, cinematic, confident",
-      audience: "Paid social decision makers",
-      site: siteSnapshot
+      targetLocation: `${formData?.city || ''}${formData?.state ? ', ' + formData?.state : ''}`,
+      targetRadius: formData?.radius,
+      websiteData: siteSnapshot
         ? {
             title: siteSnapshot.title,
-            description: siteSnapshot.description,
-            featuredHeadlines: siteSnapshot.headlines,
-            imagery: siteSnapshot.images,
-            textSample: siteSnapshot.text,
+            metaDescription: siteSnapshot.description,
+            extractedHeadlines: siteSnapshot.headlines,
+            productImages: siteSnapshot.images,
+            contentSample: siteSnapshot.text,
           }
         : null,
     });
 
     const data = await fetchFromOpenAI({
       systemPrompt:
-        "You generate short paid-social creative assets. Always respond with JSON shaped exactly like {headlines:[],primaryText:string,ctas:[]}. Headlines <= 12 words, CTA verbs, and primary text <= 80 words.",
-      userPayload: `Write creative variations for this company input: ${payload}`,
+        "You are an expert Facebook/Meta advertising copywriter with proven experience creating high-CTR ad creative for direct response campaigns. Always respond with valid JSON only, shaped exactly like {headlines:[],primaryText:string,ctas:[]}. Requirements: Create 3-5 scroll-stopping headlines (max 12 words each, avoid generic phrases), write engaging primary text (60-80 words, focus on benefits and urgency), and provide 2-3 actionable CTAs. Base the creative on the actual business from their website content. Make it specific to THEIR product/service, not generic.",
+      userPayload: `Create Facebook ad creative for this business. Use their actual website content, messaging, and value props. Make it specific and compelling:\n\n${payload}\n\nImportant:\n- Headlines must grab attention and be specific to their product/service\n- Primary text should highlight their unique value proposition from the website\n- Include social proof or urgency if evident from their site\n- CTAs should match their business model (e.g., 'Book Now' for services, 'Shop Now' for products)\n- Avoid generic phrases like 'Discover More' or 'Learn More' unless that's truly their CTA`,
     });
 
     return {
@@ -360,13 +380,12 @@ const IntakeStep = ({ formData, setFormData, onNext }) => {
     <div className="flex flex-col items-center justify-center min-h-[80vh] w-full max-w-4xl mx-auto animate-fade-up">
       <div className="text-center space-y-6 mb-12">
         <h1 className="text-5xl md:text-7xl font-bold text-white tracking-tight leading-tight">
-          See how <span className={TEXT_GRADIENT}>AdNavigator</span> builds
+          Launch your campaign
           <br />
-          your campaigns.
+          <span className={TEXT_GRADIENT}>in under 3 minutes</span>
         </h1>
         <p className="text-neutral-400 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed font-light">
-          We scan your website, brand, competitors, audience, and messaging — then generate full
-          marketing research, a UGC video, headlines, primary text, and a ready-to-launch campaign.
+          Watch our AI scan your website, analyze your competitors, identify your ideal customers, and generate a complete campaign — headlines, ad creative, and targeting — ready to deploy.
         </p>
       </div>
 
@@ -376,58 +395,78 @@ const IntakeStep = ({ formData, setFormData, onNext }) => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-6">
               <input
-                name="name"
-                placeholder="First & Last Name"
+                name="firstName"
+                placeholder="First Name"
                 className="w-full bg-[#111] border border-white/10 rounded-xl px-5 py-4 text-white placeholder-neutral-600 focus:outline-none focus:border-[#D4AF37]/50 focus:bg-[#151515] transition-all"
                 onChange={handleInputChange}
               />
               <input
                 name="email"
                 placeholder="Email Address"
-                className="w-full bg-[#111] border border-white/10 rounded-xl px-5 py-4 text-white placeholder-neutral-600 focus:outline-none focus:border-[#D4AF37]/50 focus:bg-[#151515] transition-all"
-                onChange={handleInputChange}
-              />
-              <input
-                name="city"
-                placeholder="City"
-                className="w-full bg-[#111] border border-white/10 rounded-xl px-5 py-4 text-white placeholder-neutral-600 focus:outline-none focus:border-[#D4AF37]/50 focus:bg-[#151515] transition-all"
-                onChange={handleInputChange}
-              />
-            </div>
-            <div className="space-y-6">
-              <input
-                name="phone"
-                placeholder="Phone Number"
+                type="email"
                 className="w-full bg-[#111] border border-white/10 rounded-xl px-5 py-4 text-white placeholder-neutral-600 focus:outline-none focus:border-[#D4AF37]/50 focus:bg-[#151515] transition-all"
                 onChange={handleInputChange}
               />
               <input
                 name="website"
                 placeholder="Business Website URL"
+                type="url"
+                className="w-full bg-[#111] border border-white/10 rounded-xl px-5 py-4 text-white placeholder-neutral-600 focus:outline-none focus:border-[#D4AF37]/50 focus:bg-[#151515] transition-all"
+                onChange={handleInputChange}
+              />
+              <div className="grid grid-cols-2 gap-4">
+                <input
+                  name="city"
+                  placeholder="City"
+                  className="w-full bg-[#111] border border-white/10 rounded-xl px-5 py-4 text-white placeholder-neutral-600 focus:outline-none focus:border-[#D4AF37]/50 focus:bg-[#151515] transition-all"
+                  onChange={handleInputChange}
+                />
+                <input
+                  name="state"
+                  placeholder="State"
+                  maxLength="2"
+                  className="w-full bg-[#111] border border-white/10 rounded-xl px-5 py-4 text-white placeholder-neutral-600 focus:outline-none focus:border-[#D4AF37]/50 focus:bg-[#151515] transition-all uppercase"
+                  onChange={handleInputChange}
+                />
+              </div>
+            </div>
+            <div className="space-y-6">
+              <input
+                name="lastName"
+                placeholder="Last Name"
+                className="w-full bg-[#111] border border-white/10 rounded-xl px-5 py-4 text-white placeholder-neutral-600 focus:outline-none focus:border-[#D4AF37]/50 focus:bg-[#151515] transition-all"
+                onChange={handleInputChange}
+              />
+              <input
+                name="phone"
+                placeholder="Phone Number"
+                type="tel"
                 className="w-full bg-[#111] border border-white/10 rounded-xl px-5 py-4 text-white placeholder-neutral-600 focus:outline-none focus:border-[#D4AF37]/50 focus:bg-[#151515] transition-all"
                 onChange={handleInputChange}
               />
               <input
                 name="radius"
-                placeholder="Radius (Miles)"
+                placeholder="Target Radius (Miles)"
                 type="number"
+                min="1"
+                max="500"
                 className="w-full bg-[#111] border border-white/10 rounded-xl px-5 py-4 text-white placeholder-neutral-600 focus:outline-none focus:border-[#D4AF37]/50 focus:bg-[#151515] transition-all"
                 onChange={handleInputChange}
               />
             </div>
           </div>
           <Button onClick={startAnalysis} className="w-full text-lg mt-4">
-            Start AI Analysis <ChevronRight size={20} />
+            See How It Works <ChevronRight size={20} />
           </Button>
           <div className="flex justify-center gap-8 pt-2 text-xs font-medium text-neutral-500 uppercase tracking-widest">
             <span className="flex items-center gap-2">
               <Lock size={12} /> No card required
             </span>
             <span className="flex items-center gap-2">
-              <Sparkles size={12} /> 10s analysis
+              <Sparkles size={12} /> Under 3 min
             </span>
             <span className="flex items-center gap-2">
-              <ShieldCheck size={12} /> We never sell or share your data
+              <ShieldCheck size={12} /> Data never sold
             </span>
           </div>
         </div>
