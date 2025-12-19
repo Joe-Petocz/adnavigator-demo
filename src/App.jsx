@@ -198,7 +198,17 @@ const OPENAI_MODEL = "gpt-4o-mini";
 const OPENAI_ENDPOINT = "https://api.openai.com/v1/chat/completions";
 
 const ensureArray = (value, fallback) => {
-  if (Array.isArray(value) && value.length) return value;
+  if (Array.isArray(value) && value.length) {
+    // Ensure all items are strings, not objects
+    return value.map(item => {
+      if (typeof item === 'string') return item;
+      if (typeof item === 'object' && item !== null) {
+        // If it's an object, extract the name property or convert to JSON
+        return item.name || item.label || JSON.stringify(item);
+      }
+      return String(item);
+    });
+  }
   if (typeof value === "string" && value.trim().length) return [value.trim()];
   return fallback;
 };
@@ -287,7 +297,7 @@ const fetchBrandAnalysis = async (formData, siteSnapshot) => {
 
     const data = await fetchFromOpenAI({
       systemPrompt:
-        "You are an expert performance marketing strategist and brand analyst with 15+ years analyzing businesses for Meta/Facebook advertising campaigns. Your analysis must be data-driven, specific, and actionable for paid social media advertising. Always respond with valid JSON only, shaped exactly like {business:{industry,location,positioning,segment},swot:{strengths[],weaknesses[],opportunities[],threats[]},icp:{demographics[],interests[],behaviors[],personas[]},assets:{headlines[]}}}. Base your analysis on the actual website content, metadata, and business information provided. Be specific to THIS business - avoid generic responses.",
+        "You are an expert performance marketing strategist and brand analyst with 15+ years analyzing businesses for Meta/Facebook advertising campaigns. Your analysis must be data-driven, specific, and actionable for paid social media advertising. Always respond with valid JSON only, shaped exactly like {business:{industry,location,positioning,segment},swot:{strengths[],weaknesses[],opportunities[],threats[]},icp:{demographics[],interests[],behaviors[],personas[]},assets:{headlines[]}}. IMPORTANT: All array values must be simple strings, NOT objects. For personas, use simple string names like 'The Trendsetter' or 'The Conscious Consumer', NOT objects with properties. Base your analysis on the actual website content, metadata, and business information provided. Be specific to THIS business - avoid generic responses.",
       userPayload: `Analyze this business for a Facebook/Meta advertising campaign. Extract insights from their website content and structure. Provide specific, actionable intelligence:\n\n${payload}\n\nImportant:\n- Use the actual website title, description, and content to understand what they sell\n- Identify their specific industry (not just 'E-Commerce')\n- Determine their actual location from city/state provided\n- Create a positioning statement based on their messaging\n- Identify their likely target segment from website tone and offerings\n- SWOT should be specific to THIS business and their market\n- ICP should reflect who would actually buy from them based on their products/services\n- Include 3-5 specific headline variations found on their site`,
     });
 
