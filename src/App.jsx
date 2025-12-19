@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { flushSync } from "react-dom";
 import {
   Activity,
   ArrowRight,
@@ -1169,16 +1170,34 @@ export default function App() {
 
   const handleAnalysisComplete = (data) => {
     console.log("handleAnalysisComplete called, advancing to step 3");
-    setAnalysisData(data || generateAnalysis(formData?.website));
-    // Immediately advance to step 3 to show results
-    setStep(3);
+    const finalData = data || generateAnalysis(formData?.website);
+    console.log("Analysis data:", finalData);
+
+    // Use flushSync to ensure state updates are applied synchronously
+    flushSync(() => {
+      setAnalysisData(finalData);
+    });
+
+    flushSync(() => {
+      console.log("Step transition to 3 executing");
+      setStep(3);
+    });
   };
 
   const handleCreativeComplete = (data) => {
     console.log("handleCreativeComplete called, advancing to step 5");
-    setCreativeData(data || generateCreative(formData?.website));
-    // Immediately advance to step 5 to show creative
-    setStep(5);
+    const finalData = data || generateCreative(formData?.website);
+    console.log("Creative data:", finalData);
+
+    // Use flushSync to ensure state updates are applied synchronously
+    flushSync(() => {
+      setCreativeData(finalData);
+    });
+
+    flushSync(() => {
+      console.log("Step transition to 5 executing");
+      setStep(5);
+    });
   };
 
   useEffect(() => {
