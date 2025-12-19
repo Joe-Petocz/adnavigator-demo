@@ -79,7 +79,7 @@ export const generateSoraVideo = async (prompt) => {
       body: JSON.stringify({
         model: "sora-1.0", // Hypothetical model name
         prompt: prompt,
-        duration: 30, // seconds
+        duration: 8, // seconds
         resolution: "1080x1920", // 9:16 vertical format
         fps: 30,
       }),

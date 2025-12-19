@@ -864,13 +864,13 @@ const CreativeRevealStep = ({ data, onNext, formData }) => (
             </div>
             <h3 className="text-white text-xl font-bold mb-3">Video Being Processed</h3>
             <p className="text-neutral-400 text-sm max-w-xs leading-relaxed">
-              Our AI is generating your custom UGC testimonial video. This typically takes 2-3 minutes.
+              Our AI is generating your custom UGC testimonial video. This typically takes 1-2 minutes.
             </p>
             <div className="mt-6 w-48 h-1 bg-neutral-800 rounded-full overflow-hidden">
               <div className="h-full bg-gradient-to-r from-[#D4AF37] to-[#AA8220] animate-[slideRight_2s_ease-in-out_infinite]" />
             </div>
             <p className="text-neutral-500 text-xs mt-4 italic">
-              Powered by Sora AI • Video Generation
+              AI-Powered Video Generation
             </p>
           </div>
         </div>
