@@ -580,7 +580,8 @@ const LoadingStep = ({ formData, onSnapshot, onComplete, onError }) => {
       isMounted = false;
       clearInterval(interval);
     };
-  }, [formData, onComplete, onSnapshot]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run only once on mount
 
   return (
     <div className="flex flex-col items-center justify-center h-[80vh] w-full text-center space-y-12 animate-fade-in relative overflow-hidden">
@@ -813,7 +814,8 @@ const CreativeLoadingStep = ({ formData, snapshot, onComplete }) => {
       isMounted = false;
       clearInterval(interval);
     };
-  }, [formData, snapshot, onComplete]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run only once on mount
 
   return (
     <div className="flex flex-col items-center justify-center h-[80vh] w-full text-center space-y-8 animate-fade-in">
