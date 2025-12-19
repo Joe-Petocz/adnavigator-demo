@@ -846,7 +846,7 @@ const CreativeLoadingStep = ({ formData, snapshot, onComplete }) => {
   );
 };
 
-const CreativeRevealStep = ({ data, onNext }) => (
+const CreativeRevealStep = ({ data, onNext, formData }) => (
   <div className="w-full max-w-5xl mx-auto py-12 animate-fade-up">
     <div className="text-center mb-12">
       <h2 className="text-4xl font-bold text-white mb-3">Your AI-Generated Creative Is Ready.</h2>
@@ -855,16 +855,23 @@ const CreativeRevealStep = ({ data, onNext }) => (
     <div className="grid grid-cols-12 gap-8">
       <div className="col-span-12 md:col-span-6">
         <div className="aspect-[9/16] bg-black rounded-[32px] border-[4px] border-[#1a1a1a] shadow-2xl relative overflow-hidden group">
-          <div className="absolute inset-0 bg-neutral-900 flex items-center justify-center">
-            <Video size={48} className="text-neutral-700" />
-          </div>
-          <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-            <div className="w-20 h-20 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20">
-              <Play size={32} className="text-white ml-1" />
+          <div className="absolute inset-0 bg-gradient-to-br from-neutral-900 via-neutral-800 to-black flex flex-col items-center justify-center p-8 text-center">
+            <div className="mb-6 relative">
+              <div className="w-20 h-20 rounded-full bg-[#D4AF37]/10 border-2 border-[#D4AF37]/30 flex items-center justify-center animate-pulse">
+                <Video size={40} className="text-[#D4AF37]" />
+              </div>
+              <div className="absolute -inset-2 rounded-full border-2 border-[#D4AF37]/20 animate-ping" />
             </div>
-          </div>
-          <div className="absolute bottom-8 left-8 right-8 h-1 bg-white/20 rounded-full overflow-hidden">
-            <div className="w-1/3 h-full bg-white" />
+            <h3 className="text-white text-xl font-bold mb-3">Video Being Processed</h3>
+            <p className="text-neutral-400 text-sm max-w-xs leading-relaxed">
+              Our AI is generating your custom UGC testimonial video. This typically takes 2-3 minutes.
+            </p>
+            <div className="mt-6 w-48 h-1 bg-neutral-800 rounded-full overflow-hidden">
+              <div className="h-full bg-gradient-to-r from-[#D4AF37] to-[#AA8220] animate-[slideRight_2s_ease-in-out_infinite]" />
+            </div>
+            <p className="text-neutral-500 text-xs mt-4 italic">
+              Powered by Sora AI • Video Generation
+            </p>
           </div>
         </div>
       </div>
@@ -1221,7 +1228,7 @@ export default function App() {
               onComplete={handleCreativeComplete}
             />
           )}
-          {step === 5 && creativeData && <CreativeRevealStep data={creativeData} onNext={() => setStep(6)} />}
+          {step === 5 && creativeData && <CreativeRevealStep data={creativeData} formData={formData} onNext={() => setStep(6)} />}
           {step === 6 && (
             <DeployStep
               onNext={() => setStep(7)}
