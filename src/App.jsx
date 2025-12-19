@@ -555,6 +555,16 @@ const LoadingStep = ({ formData, onSnapshot, onComplete, onError }) => {
       index += 1;
     }, 1500);
 
+    // Maximum timeout of 45 seconds - if analysis takes longer, use fallback
+    const maxTimeout = setTimeout(() => {
+      if (isMounted) {
+        console.warn("Analysis timeout - using fallback data");
+        clearInterval(interval);
+        const websiteUrl = formData?.website || "MyBrand.com";
+        onComplete(generateAnalysis(websiteUrl));
+      }
+    }, 45000);
+
     const runAnalysis = async () => {
       try {
         // Ensure we have a website URL to analyze
@@ -568,6 +578,7 @@ const LoadingStep = ({ formData, onSnapshot, onComplete, onError }) => {
 
         const results = await fetchBrandAnalysis({ ...formData, website: websiteUrl }, snapshot);
         if (isMounted) {
+          clearTimeout(maxTimeout);
           clearInterval(interval);
           console.log("Analysis complete, transitioning to results");
           onComplete(results);
@@ -575,6 +586,7 @@ const LoadingStep = ({ formData, onSnapshot, onComplete, onError }) => {
       } catch (error) {
         console.error("Analysis error:", error);
         if (isMounted) {
+          clearTimeout(maxTimeout);
           clearInterval(interval);
           // Use fallback data on error
           const websiteUrl = formData?.website || "MyBrand.com";
@@ -589,6 +601,7 @@ const LoadingStep = ({ formData, onSnapshot, onComplete, onError }) => {
     return () => {
       isMounted = false;
       clearInterval(interval);
+      clearTimeout(maxTimeout);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Run only once on mount
@@ -801,16 +814,27 @@ const CreativeLoadingStep = ({ formData, snapshot, onComplete }) => {
       index += 1;
     }, 1200);
 
+    // Maximum timeout of 30 seconds for creative generation
+    const maxTimeout = setTimeout(() => {
+      if (isMounted) {
+        console.warn("Creative generation timeout - using fallback data");
+        clearInterval(interval);
+        onComplete(generateCreative(formData?.website));
+      }
+    }, 30000);
+
     const runCreative = async () => {
       try {
         const results = await fetchCreativeAssets(formData, snapshot);
         if (isMounted) {
+          clearTimeout(maxTimeout);
           clearInterval(interval);
           onComplete(results);
         }
       } catch (error) {
         console.error("Creative generation error:", error);
         if (isMounted) {
+          clearTimeout(maxTimeout);
           clearInterval(interval);
           // Use fallback data on error
           onComplete(generateCreative(formData?.website));
@@ -823,6 +847,7 @@ const CreativeLoadingStep = ({ formData, snapshot, onComplete }) => {
     return () => {
       isMounted = false;
       clearInterval(interval);
+      clearTimeout(maxTimeout);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Run only once on mount
@@ -1143,11 +1168,17 @@ export default function App() {
   const [siteSnapshot, setSiteSnapshot] = useState(null);
 
   const handleAnalysisComplete = (data) => {
+    console.log("handleAnalysisComplete called, advancing to step 3");
     setAnalysisData(data || generateAnalysis(formData?.website));
+    // Immediately advance to step 3 to show results
+    setStep(3);
   };
 
   const handleCreativeComplete = (data) => {
+    console.log("handleCreativeComplete called, advancing to step 5");
     setCreativeData(data || generateCreative(formData?.website));
+    // Immediately advance to step 5 to show creative
+    setStep(5);
   };
 
   useEffect(() => {
