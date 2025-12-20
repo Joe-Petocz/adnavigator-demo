@@ -1055,8 +1055,8 @@ MOOD: Genuine, trustworthy, relatable`;
           body: JSON.stringify({
             model: "sora-2",
             prompt: prompt,
-            duration_seconds: 8,
-            aspect_ratio: "9:16",
+            duration: 8,
+            size: "1080x1920",
           }),
         });
 
