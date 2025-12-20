@@ -1065,17 +1065,22 @@ MOOD: Genuine, trustworthy, relatable`;
         });
 
         if (!response.ok) {
+          const errorText = await response.text().catch(() => "");
+          console.error(`Sora API ${response.status} response:`, errorText);
           throw new Error(`Sora API error: ${response.status}`);
         }
 
         const result = await response.json();
-        console.log("Sora API response:", result);
+        console.log("Sora API success:", result);
 
         if (isMounted && result.data?.[0]?.url) {
           clearInterval(progressInterval);
           setProgress(100);
           setVideoUrl(result.data[0].url);
           setVideoReady(true);
+          console.log("Video URL received:", result.data[0].url);
+        } else {
+          throw new Error("No video URL in response");
         }
 
       } catch (err) {
@@ -1084,13 +1089,15 @@ MOOD: Genuine, trustworthy, relatable`;
         if (isMounted) {
           clearInterval(progressInterval);
 
-          // Check if API not available (404 or similar)
-          if (err.message.includes("404") || err.message.includes("401")) {
-            console.warn("Sora API not available - demo mode");
+          // Check if API not available yet (common error codes)
+          const errorMsg = err.message || "";
+          if (errorMsg.includes("404") || errorMsg.includes("401") || errorMsg.includes("405") || errorMsg.includes("403")) {
+            console.warn("Sora API not publicly available yet - using demo mode");
             setProgress(100);
             setVideoReady(true);
             setError("demo_mode");
           } else {
+            console.error("Unexpected error:", err);
             setError(err.message);
             setProgress(100);
             setVideoReady(true);
