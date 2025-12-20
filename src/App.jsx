@@ -884,17 +884,14 @@ const CreativeRevealStep = ({ data, onNext, formData, videoProgress = null, vide
           {videoReady && videoUrl ? (
             // Real video from Sora API
             <div className="relative w-full h-full bg-black">
-              <video
+              <iframe
                 src={videoUrl}
-                controls
-                autoPlay
-                loop
-                className="w-full h-full object-cover"
-                playsInline
-              >
-                Your browser does not support video playback.
-              </video>
-              <div className="absolute top-4 left-4 right-4">
+                className="w-full h-full"
+                allow="autoplay; fullscreen"
+                style={{ border: 'none' }}
+                title="Generated Video"
+              />
+              <div className="absolute top-4 left-4 right-4 pointer-events-none">
                 <div className="bg-black/70 backdrop-blur-sm rounded-lg px-3 py-2 border border-green-500/30">
                   <div className="flex items-center gap-2 text-xs text-green-400">
                     <CheckCircle size={14} />
@@ -1047,20 +1044,19 @@ MOOD: Genuine, trustworthy, relatable`;
           setProgress(prev => Math.min(prev + 1, 95));
         }, 300);
 
-        // Call OpenAI Sora API
+        // Call OpenAI Sora API (correct endpoint)
         const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
-        const response = await fetch("https://api.openai.com/v1/videos/generations", {
+        const response = await fetch("https://api.openai.com/v1/videos", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             "Authorization": `Bearer ${apiKey}`,
           },
           body: JSON.stringify({
-            model: "sora-1.0",
+            model: "sora-2",
             prompt: prompt,
-            duration: 8,
-            resolution: "1080x1920",
-            fps: 30,
+            duration_seconds: 8,
+            aspect_ratio: "9:16",
           }),
         });
 
@@ -1070,17 +1066,52 @@ MOOD: Genuine, trustworthy, relatable`;
           throw new Error(`Sora API error: ${response.status}`);
         }
 
-        const result = await response.json();
-        console.log("Sora API success:", result);
+        const jobResult = await response.json();
+        console.log("Sora job created:", jobResult);
 
-        if (isMounted && result.data?.[0]?.url) {
-          clearInterval(progressInterval);
-          setProgress(100);
-          setVideoUrl(result.data[0].url);
-          setVideoReady(true);
-          console.log("Video URL received:", result.data[0].url);
-        } else {
-          throw new Error("No video URL in response");
+        const videoId = jobResult.id;
+        if (!videoId) {
+          throw new Error("No video ID in response");
+        }
+
+        // Poll for video completion
+        console.log("Polling for video completion...");
+        let pollAttempts = 0;
+        const maxPolls = 60; // 60 attempts = 5 minutes max
+
+        while (pollAttempts < maxPolls && isMounted) {
+          await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+
+          const statusResponse = await fetch(`https://api.openai.com/v1/videos/${videoId}`, {
+            headers: {
+              "Authorization": `Bearer ${apiKey}`,
+            },
+          });
+
+          const statusResult = await statusResponse.json();
+          console.log("Video status:", statusResult.status);
+
+          if (statusResult.status === "completed") {
+            // Get the video content URL
+            const videoUrl = `https://api.openai.com/v1/videos/${videoId}/content`;
+
+            if (isMounted) {
+              clearInterval(progressInterval);
+              setProgress(100);
+              setVideoUrl(videoUrl);
+              setVideoReady(true);
+              console.log("Video ready:", videoUrl);
+            }
+            break;
+          } else if (statusResult.status === "failed") {
+            throw new Error("Video generation failed");
+          }
+
+          pollAttempts++;
+        }
+
+        if (pollAttempts >= maxPolls) {
+          throw new Error("Video generation timeout");
         }
 
       } catch (err) {
