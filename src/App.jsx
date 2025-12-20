@@ -872,7 +872,7 @@ const CreativeLoadingStep = ({ formData, snapshot, onComplete }) => {
   );
 };
 
-const CreativeRevealStep = ({ data, onNext, formData }) => (
+const CreativeRevealStep = ({ data, onNext, formData, videoProgress = null }) => (
   <div className="w-full max-w-5xl mx-auto py-12 animate-fade-up">
     <div className="text-center mb-12">
       <h2 className="text-4xl font-bold text-white mb-3">Your AI-Generated Creative Is Ready.</h2>
@@ -882,22 +882,52 @@ const CreativeRevealStep = ({ data, onNext, formData }) => (
       <div className="col-span-12 md:col-span-6">
         <div className="aspect-[9/16] bg-black rounded-[32px] border-[4px] border-[#1a1a1a] shadow-2xl relative overflow-hidden group">
           <div className="absolute inset-0 bg-gradient-to-br from-neutral-900 via-neutral-800 to-black flex flex-col items-center justify-center p-8 text-center">
-            <div className="mb-6 relative">
-              <div className="w-20 h-20 rounded-full bg-[#D4AF37]/10 border-2 border-[#D4AF37]/30 flex items-center justify-center animate-pulse">
-                <Video size={40} className="text-[#D4AF37]" />
-              </div>
-              <div className="absolute -inset-2 rounded-full border-2 border-[#D4AF37]/20 animate-ping" />
-            </div>
-            <h3 className="text-white text-xl font-bold mb-3">Video Being Processed</h3>
-            <p className="text-neutral-400 text-sm max-w-xs leading-relaxed">
-              Our AI is generating your custom UGC testimonial video. This typically takes 1-2 minutes.
-            </p>
-            <div className="mt-6 w-48 h-1 bg-neutral-800 rounded-full overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-[#D4AF37] to-[#AA8220] animate-[slideRight_2s_ease-in-out_infinite]" />
-            </div>
-            <p className="text-neutral-500 text-xs mt-4 italic">
-              AI-Powered Video Generation
-            </p>
+            {videoProgress !== null && videoProgress < 100 ? (
+              <>
+                <div className="mb-6 relative">
+                  <div className="w-20 h-20 rounded-full bg-[#D4AF37]/10 border-2 border-[#D4AF37]/30 flex items-center justify-center animate-pulse">
+                    <Video size={40} className="text-[#D4AF37]" />
+                  </div>
+                  <div className="absolute -inset-2 rounded-full border-2 border-[#D4AF37]/20 animate-ping" />
+                </div>
+                <h3 className="text-white text-xl font-bold mb-3">Video Being Processed</h3>
+                <p className="text-neutral-400 text-sm max-w-xs leading-relaxed">
+                  Our AI is generating your custom UGC testimonial video.
+                </p>
+                <div className="mt-6 w-48 h-2 bg-neutral-800 rounded-full overflow-hidden">
+                  <div className="h-full bg-gradient-to-r from-[#D4AF37] to-[#AA8220] transition-all duration-300" style={{ width: `${videoProgress}%` }} />
+                </div>
+                <p className="text-neutral-500 text-xs mt-4">{videoProgress}% Complete</p>
+                <p className="text-neutral-600 text-xs mt-2 italic">AI-Powered Video Generation</p>
+              </>
+            ) : videoProgress === 100 ? (
+              <>
+                <div className="mb-6 relative">
+                  <div className="w-20 h-20 rounded-full bg-green-500/10 border-2 border-green-500/30 flex items-center justify-center">
+                    <CheckCircle size={40} className="text-green-500" />
+                  </div>
+                </div>
+                <h3 className="text-white text-xl font-bold mb-3">Video Complete!</h3>
+                <p className="text-neutral-400 text-sm max-w-xs">Your UGC testimonial video is ready.</p>
+              </>
+            ) : (
+              <>
+                <div className="mb-6 relative">
+                  <div className="w-20 h-20 rounded-full bg-[#D4AF37]/10 border-2 border-[#D4AF37]/30 flex items-center justify-center animate-pulse">
+                    <Video size={40} className="text-[#D4AF37]" />
+                  </div>
+                  <div className="absolute -inset-2 rounded-full border-2 border-[#D4AF37]/20 animate-ping" />
+                </div>
+                <h3 className="text-white text-xl font-bold mb-3">Video Being Processed</h3>
+                <p className="text-neutral-400 text-sm max-w-xs leading-relaxed">
+                  Our AI is generating your custom UGC testimonial video.
+                </p>
+                <div className="mt-6 w-48 h-1 bg-neutral-800 rounded-full overflow-hidden">
+                  <div className="h-full bg-gradient-to-r from-[#D4AF37] to-[#AA8220] animate-[slideRight_2s_ease-in-out_infinite]" />
+                </div>
+                <p className="text-neutral-500 text-xs mt-4 italic">AI-Powered Video Generation</p>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -946,6 +976,35 @@ const CreativeRevealStep = ({ data, onNext, formData }) => (
     </div>
   </div>
 );
+
+// Wrapper to add auto-advance behavior to CreativeRevealStep
+const CreativeRevealStepWrapper = ({ data, onNext, formData }) => {
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const progressInterval = setInterval(() => {
+      setProgress(prev => Math.min(prev + 2, 100));
+    }, 150);
+
+    const completeTimeout = setTimeout(() => {
+      if (isMounted) {
+        console.log("Video generation complete - auto-advancing");
+        setProgress(100);
+        setTimeout(() => isMounted && onNext(), 1500);
+      }
+    }, 8000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(progressInterval);
+      clearTimeout(completeTimeout);
+    };
+  }, [onNext]);
+
+  return <CreativeRevealStep data={data} formData={formData} onNext={onNext} videoProgress={progress} />;
+};
 
 const DemoVideoStep = ({ onNext }) => (
   <div className="flex flex-col items-center justify-center min-h-[80vh] w-full max-w-5xl mx-auto text-center space-y-10 animate-fade-up px-4">
@@ -1278,7 +1337,7 @@ export default function App() {
               onComplete={handleCreativeComplete}
             />
           )}
-          {step === 5 && creativeData && <CreativeRevealStep data={creativeData} formData={formData} onNext={() => setStep(6)} />}
+          {step === 5 && creativeData && <CreativeRevealStepWrapper data={creativeData} formData={formData} onNext={() => setStep(6)} />}
           {step === 6 && (
             <DeployStep
               onNext={() => setStep(7)}
