@@ -872,7 +872,7 @@ const CreativeLoadingStep = ({ formData, snapshot, onComplete }) => {
   );
 };
 
-const CreativeRevealStep = ({ data, onNext, formData, videoProgress = null }) => (
+const CreativeRevealStep = ({ data, onNext, formData, videoProgress = null, videoReady = false }) => (
   <div className="w-full max-w-5xl mx-auto py-12 animate-fade-up">
     <div className="text-center mb-12">
       <h2 className="text-4xl font-bold text-white mb-3">Your AI-Generated Creative Is Ready.</h2>
@@ -881,54 +881,50 @@ const CreativeRevealStep = ({ data, onNext, formData, videoProgress = null }) =>
     <div className="grid grid-cols-12 gap-8">
       <div className="col-span-12 md:col-span-6">
         <div className="aspect-[9/16] bg-black rounded-[32px] border-[4px] border-[#1a1a1a] shadow-2xl relative overflow-hidden group">
-          <div className="absolute inset-0 bg-gradient-to-br from-neutral-900 via-neutral-800 to-black flex flex-col items-center justify-center p-8 text-center">
-            {videoProgress !== null && videoProgress < 100 ? (
-              <>
-                <div className="mb-6 relative">
-                  <div className="w-20 h-20 rounded-full bg-[#D4AF37]/10 border-2 border-[#D4AF37]/30 flex items-center justify-center animate-pulse">
-                    <Video size={40} className="text-[#D4AF37]" />
+          {videoReady ? (
+            // Video is ready - display placeholder video
+            <div className="relative w-full h-full bg-gradient-to-br from-neutral-900 via-neutral-800 to-black">
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="text-center p-8">
+                  <div className="mb-6">
+                    <div className="w-24 h-24 rounded-full bg-green-500/10 border-2 border-green-500/30 flex items-center justify-center mx-auto">
+                      <Play size={48} className="text-green-500 ml-1" />
+                    </div>
                   </div>
-                  <div className="absolute -inset-2 rounded-full border-2 border-[#D4AF37]/20 animate-ping" />
+                  <h3 className="text-white text-2xl font-bold mb-3">UGC Testimonial Video</h3>
+                  <p className="text-neutral-300 text-sm mb-2">8-second AI-Generated Video</p>
+                  <p className="text-neutral-500 text-xs italic">Click play to preview (demo mode)</p>
                 </div>
-                <h3 className="text-white text-xl font-bold mb-3">Video Being Processed</h3>
-                <p className="text-neutral-400 text-sm max-w-xs leading-relaxed">
-                  Our AI is generating your custom UGC testimonial video.
-                </p>
-                <div className="mt-6 w-48 h-2 bg-neutral-800 rounded-full overflow-hidden">
-                  <div className="h-full bg-gradient-to-r from-[#D4AF37] to-[#AA8220] transition-all duration-300" style={{ width: `${videoProgress}%` }} />
-                </div>
-                <p className="text-neutral-500 text-xs mt-4">{videoProgress}% Complete</p>
-                <p className="text-neutral-600 text-xs mt-2 italic">AI-Powered Video Generation</p>
-              </>
-            ) : videoProgress === 100 ? (
-              <>
-                <div className="mb-6 relative">
-                  <div className="w-20 h-20 rounded-full bg-green-500/10 border-2 border-green-500/30 flex items-center justify-center">
-                    <CheckCircle size={40} className="text-green-500" />
+              </div>
+              <div className="absolute bottom-4 left-4 right-4">
+                <div className="bg-black/50 backdrop-blur-sm rounded-lg p-3 border border-white/10">
+                  <div className="flex items-center justify-between text-xs text-neutral-400">
+                    <span>Generated via AI</span>
+                    <span>9:16 Format</span>
                   </div>
                 </div>
-                <h3 className="text-white text-xl font-bold mb-3">Video Complete!</h3>
-                <p className="text-neutral-400 text-sm max-w-xs">Your UGC testimonial video is ready.</p>
-              </>
-            ) : (
-              <>
-                <div className="mb-6 relative">
-                  <div className="w-20 h-20 rounded-full bg-[#D4AF37]/10 border-2 border-[#D4AF37]/30 flex items-center justify-center animate-pulse">
-                    <Video size={40} className="text-[#D4AF37]" />
-                  </div>
-                  <div className="absolute -inset-2 rounded-full border-2 border-[#D4AF37]/20 animate-ping" />
+              </div>
+            </div>
+          ) : (
+            // Video is generating - show progress
+            <div className="absolute inset-0 bg-gradient-to-br from-neutral-900 via-neutral-800 to-black flex flex-col items-center justify-center p-8 text-center">
+              <div className="mb-6 relative">
+                <div className="w-20 h-20 rounded-full bg-[#D4AF37]/10 border-2 border-[#D4AF37]/30 flex items-center justify-center animate-pulse">
+                  <Video size={40} className="text-[#D4AF37]" />
                 </div>
-                <h3 className="text-white text-xl font-bold mb-3">Video Being Processed</h3>
-                <p className="text-neutral-400 text-sm max-w-xs leading-relaxed">
-                  Our AI is generating your custom UGC testimonial video.
-                </p>
-                <div className="mt-6 w-48 h-1 bg-neutral-800 rounded-full overflow-hidden">
-                  <div className="h-full bg-gradient-to-r from-[#D4AF37] to-[#AA8220] animate-[slideRight_2s_ease-in-out_infinite]" />
-                </div>
-                <p className="text-neutral-500 text-xs mt-4 italic">AI-Powered Video Generation</p>
-              </>
-            )}
-          </div>
+                <div className="absolute -inset-2 rounded-full border-2 border-[#D4AF37]/20 animate-ping" />
+              </div>
+              <h3 className="text-white text-xl font-bold mb-3">Video Being Processed</h3>
+              <p className="text-neutral-400 text-sm max-w-xs leading-relaxed">
+                Our AI is generating your custom UGC testimonial video.
+              </p>
+              <div className="mt-6 w-48 h-2 bg-neutral-800 rounded-full overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-[#D4AF37] to-[#AA8220] transition-all duration-300" style={{ width: `${videoProgress || 0}%` }} />
+              </div>
+              <p className="text-neutral-500 text-xs mt-4">{videoProgress || 0}% Complete</p>
+              <p className="text-neutral-600 text-xs mt-2 italic">AI-Powered Video Generation</p>
+            </div>
+          )}
         </div>
       </div>
       <div className="col-span-12 md:col-span-6 space-y-6">
@@ -977,33 +973,34 @@ const CreativeRevealStep = ({ data, onNext, formData, videoProgress = null }) =>
   </div>
 );
 
-// Wrapper to add auto-advance behavior to CreativeRevealStep
+// Wrapper to handle video generation timing
 const CreativeRevealStepWrapper = ({ data, onNext, formData }) => {
   const [progress, setProgress] = useState(0);
+  const [videoReady, setVideoReady] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
 
+    // Progress animation - reaches 100% when video is ready
     const progressInterval = setInterval(() => {
-      setProgress(prev => Math.min(prev + 2, 100));
+      setProgress(prev => {
+        const newProgress = Math.min(prev + 2, 100);
+        if (newProgress === 100 && isMounted) {
+          console.log("Video generation complete - displaying video");
+          clearInterval(progressInterval);
+          setVideoReady(true);
+        }
+        return newProgress;
+      });
     }, 150);
-
-    const completeTimeout = setTimeout(() => {
-      if (isMounted) {
-        console.log("Video generation complete - auto-advancing");
-        setProgress(100);
-        setTimeout(() => isMounted && onNext(), 1500);
-      }
-    }, 8000);
 
     return () => {
       isMounted = false;
       clearInterval(progressInterval);
-      clearTimeout(completeTimeout);
     };
-  }, [onNext]);
+  }, []);
 
-  return <CreativeRevealStep data={data} formData={formData} onNext={onNext} videoProgress={progress} />;
+  return <CreativeRevealStep data={data} formData={formData} onNext={onNext} videoProgress={progress} videoReady={videoReady} />;
 };
 
 const DemoVideoStep = ({ onNext }) => (
