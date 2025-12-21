@@ -925,7 +925,7 @@ const CreativeRevealStep = ({ data, onNext, formData, videoProgress = null, vide
               </div>
             </div>
           ) : videoReady && error ? (
-            // Error state
+            // Error state - Processing Failed
             <div className="relative w-full h-full bg-gradient-to-br from-red-900/20 via-neutral-900 to-black">
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="text-center p-8">
@@ -934,10 +934,25 @@ const CreativeRevealStep = ({ data, onNext, formData, videoProgress = null, vide
                       <AlertCircle size={48} className="text-red-500" />
                     </div>
                   </div>
-                  <h3 className="text-white text-xl font-bold mb-3">Video Generation Failed</h3>
-                  <p className="text-neutral-400 text-sm max-w-xs">{error}</p>
+                  <h3 className="text-white text-xl font-bold mb-3">Processing Failed</h3>
+                  <p className="text-neutral-400 text-sm max-w-xs mb-4">{error}</p>
+                  <p className="text-neutral-500 text-xs italic">Please try again or contact support</p>
                 </div>
               </div>
+            </div>
+          ) : error && !videoReady ? (
+            // Error during processing - keep showing processing state with error info
+            <div className="absolute inset-0 bg-gradient-to-br from-neutral-900 via-neutral-800 to-black flex flex-col items-center justify-center p-8 text-center">
+              <div className="mb-6 relative">
+                <div className="w-20 h-20 rounded-full bg-red-500/10 border-2 border-red-500/30 flex items-center justify-center">
+                  <AlertCircle size={40} className="text-red-500" />
+                </div>
+              </div>
+              <h3 className="text-white text-xl font-bold mb-3">Processing Failed</h3>
+              <p className="text-neutral-400 text-sm max-w-xs leading-relaxed mb-4">
+                {error}
+              </p>
+              <p className="text-neutral-500 text-xs italic">Unable to generate video</p>
             </div>
           ) : (
             // Video is generating - show progress
@@ -1039,10 +1054,8 @@ MOOD: Genuine, trustworthy, relatable`;
 
         console.log("Video prompt:", prompt);
 
-        // Start progress animation
-        progressInterval = setInterval(() => {
-          setProgress(prev => Math.min(prev + 1, 95));
-        }, 300);
+        // Start with initial progress
+        setProgress(10);
 
         // Call OpenAI Sora API with form-data (official format)
         const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
@@ -1075,6 +1088,11 @@ MOOD: Genuine, trustworthy, relatable`;
           throw new Error("No video ID in response");
         }
 
+        // Set progress after successful API call
+        if (isMounted) {
+          setProgress(20);
+        }
+
         // Poll for video completion
         console.log("Polling for video completion...");
         let pollAttempts = 0;
@@ -1092,12 +1110,17 @@ MOOD: Genuine, trustworthy, relatable`;
           const statusResult = await statusResponse.json();
           console.log("Video status:", statusResult.status);
 
+          // Update progress based on polling attempts (20% to 95%)
+          const progressIncrement = Math.floor(20 + (pollAttempts / maxPolls) * 75);
+          if (isMounted) {
+            setProgress(Math.min(progressIncrement, 95));
+          }
+
           if (statusResult.status === "completed") {
             // Get the video content URL
             const videoUrl = `https://api.openai.com/v1/videos/${videoId}/content`;
 
             if (isMounted) {
-              clearInterval(progressInterval);
               setProgress(100);
               setVideoUrl(videoUrl);
               setVideoReady(true);
@@ -1119,8 +1142,6 @@ MOOD: Genuine, trustworthy, relatable`;
         console.error("Video generation error:", err);
 
         if (isMounted) {
-          clearInterval(progressInterval);
-
           // Check if API not available yet (common error codes)
           const errorMsg = err.message || "";
           if (errorMsg.includes("404") || errorMsg.includes("401") || errorMsg.includes("405") || errorMsg.includes("403")) {
@@ -1129,10 +1150,11 @@ MOOD: Genuine, trustworthy, relatable`;
             setVideoReady(true);
             setError("demo_mode");
           } else {
+            // For real errors, set error state but keep videoReady false
+            // This will keep showing "Video Being Processed" with error indicator
             console.error("Unexpected error:", err);
             setError(err.message);
-            setProgress(100);
-            setVideoReady(true);
+            setVideoReady(true); // Show error state
           }
         }
       }
