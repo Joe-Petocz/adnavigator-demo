@@ -1070,19 +1070,20 @@ MOOD: Genuine, trustworthy, relatable`;
         console.log("[DEBUG] Sora API Key exists:", !!apiKey, "Length:", apiKey?.length);
 
         const videoFormData = new FormData();
-        videoFormData.append('model', 'sora-2');
+        videoFormData.append('model', 'sora-2-pro');
         videoFormData.append('prompt', prompt);
         videoFormData.append('seconds', '8');
-        videoFormData.append('size', '1080x1920');
+        videoFormData.append('size', '720x1280');  // Vertical format for mobile
 
         console.log("[DEBUG] Calling Sora API: POST https://api.openai.com/v1/videos");
         console.log("[DEBUG] Sora request params:", {
-          model: 'sora-2',
+          model: 'sora-2-pro',
           seconds: '8',
-          size: '1080x1920',
+          size: '720x1280',
           promptLength: prompt.length
         });
 
+        // Note: Do NOT set Content-Type header - browser will set it automatically with boundary for multipart/form-data
         const response = await fetch("https://api.openai.com/v1/videos", {
           method: "POST",
           headers: {
