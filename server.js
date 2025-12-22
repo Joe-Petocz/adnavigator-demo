@@ -4,6 +4,7 @@ import fetch from 'node-fetch';
 import FormData from 'form-data';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import demoRoutes from './routes/demoRoutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -17,6 +18,9 @@ app.use(express.json({ limit: '10mb' }));
 
 // Serve static files from dist
 app.use(express.static(join(__dirname, 'dist')));
+
+// Demo session routes (new versioned pipeline)
+app.use('/api/demo', demoRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
