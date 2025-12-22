@@ -883,11 +883,13 @@ const CreativeRevealStep = ({ data, onNext, formData, videoProgress = null, vide
           {videoReady && videoUrl ? (
             // Real video from Sora API
             <div className="relative w-full h-full bg-black">
-              <iframe
+              <video
                 src={videoUrl}
-                className="w-full h-full"
-                allow="autoplay; fullscreen"
-                style={{ border: 'none' }}
+                className="w-full h-full object-cover"
+                controls
+                autoPlay
+                loop
+                playsInline
                 title="Generated Video"
               />
               <div className="absolute top-4 left-4 right-4 pointer-events-none">
@@ -962,11 +964,14 @@ const CreativeRevealStep = ({ data, onNext, formData, videoProgress = null, vide
                 </div>
                 <div className="absolute -inset-2 rounded-full border-2 border-[#D4AF37]/20 animate-ping" />
               </div>
-              <h3 className="text-white text-xl font-bold mb-3">Video Being Processed</h3>
-              <p className="text-neutral-400 text-sm max-w-xs leading-relaxed">
+              <h3 className="text-white text-xl font-bold mb-3">Video Being Generated</h3>
+              <p className="text-neutral-400 text-sm max-w-xs leading-relaxed mb-2">
                 Our AI is generating your custom UGC testimonial video.
               </p>
-              <div className="mt-6 w-48 h-2 bg-neutral-800 rounded-full overflow-hidden">
+              <p className="text-neutral-500 text-xs max-w-xs leading-relaxed mb-4">
+                Due to many agencies testing the platform, this may take up to 3 minutes depending on current demand.
+              </p>
+              <div className="mt-2 w-48 h-2 bg-neutral-800 rounded-full overflow-hidden">
                 <div className="h-full bg-gradient-to-r from-[#D4AF37] to-[#AA8220] transition-all duration-300" style={{ width: `${videoProgress || 0}%` }} />
               </div>
               <p className="text-neutral-500 text-xs mt-4">{videoProgress || 0}% Complete</p>
@@ -1119,8 +1124,8 @@ MOOD: Genuine, trustworthy, relatable`;
           }
 
           if (statusResult.status === "completed") {
-            // Get the video content URL
-            const videoUrl = `https://api.openai.com/v1/videos/${videoId}/content`;
+            // Get the video content URL (proxied through our backend)
+            const videoUrl = `/api/sora/videos/${videoId}/content`;
 
             if (isMounted) {
               setProgress(100);

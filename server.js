@@ -145,6 +145,47 @@ app.get('/api/sora/videos/:videoId', async (req, res) => {
   }
 });
 
+// Proxy endpoint for Sora video content (the actual video file)
+app.get('/api/sora/videos/:videoId/content', async (req, res) => {
+  try {
+    const apiKey = process.env.VITE_OPENAI_API_KEY;
+    const { videoId } = req.params;
+
+    if (!apiKey) {
+      console.error('[ERROR] VITE_OPENAI_API_KEY not set');
+      return res.status(500).json({ error: 'API key not configured' });
+    }
+
+    console.log(`[DEBUG] Fetching video content for: ${videoId}`);
+
+    const response = await fetch(`https://api.openai.com/v1/videos/${videoId}/content`, {
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[ERROR] Sora video content error:', response.status, errorText);
+      return res.status(response.status).send(errorText);
+    }
+
+    // Stream the video content
+    res.setHeader('Content-Type', response.headers.get('content-type') || 'video/mp4');
+    const contentLength = response.headers.get('content-length');
+    if (contentLength) {
+      res.setHeader('Content-Length', contentLength);
+    }
+
+    // Pipe the video stream to the response
+    const buffer = await response.arrayBuffer();
+    res.send(Buffer.from(buffer));
+  } catch (error) {
+    console.error('[ERROR] Sora video content proxy error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Serve index.html for all other routes (SPA support)
 app.get('*', (req, res) => {
   res.sendFile(join(__dirname, 'dist', 'index.html'));
