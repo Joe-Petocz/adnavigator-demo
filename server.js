@@ -20,7 +20,11 @@ app.use(express.static(join(__dirname, 'dist')));
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    apiKeyConfigured: !!process.env.VITE_OPENAI_API_KEY
+  });
 });
 
 // Proxy endpoint for OpenAI Chat Completions
