@@ -221,12 +221,15 @@ const ensureString = (value, fallback) => {
 
 const fetchFromOpenAI = async ({ systemPrompt, userPayload }) => {
   const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+  console.log("[DEBUG] OpenAI API Key exists:", !!apiKey, "Length:", apiKey?.length);
+
   if (!apiKey) {
     console.error("OpenAI API Key not found. Please set VITE_OPENAI_API_KEY in Railway environment variables.");
     throw new Error("OpenAI API configuration missing. Using demo data instead.");
   }
 
   try {
+    console.log("[DEBUG] Calling OpenAI API:", OPENAI_ENDPOINT, "Model:", OPENAI_MODEL);
     const response = await fetch(OPENAI_ENDPOINT, {
       method: "POST",
       headers: {
@@ -244,23 +247,28 @@ const fetchFromOpenAI = async ({ systemPrompt, userPayload }) => {
       }),
     });
 
+    console.log("[DEBUG] OpenAI Response Status:", response.status, response.statusText);
+
     if (!response.ok) {
       const errorPayload = await response.json().catch(() => ({}));
       const errorMessage = errorPayload?.error?.message || `API request failed with status ${response.status}`;
-      console.error("OpenAI API Error:", errorMessage);
+      console.error("OpenAI API Error:", errorMessage, "Full error:", errorPayload);
       throw new Error(errorMessage);
     }
 
     const completion = await response.json();
+    console.log("[DEBUG] OpenAI Response received, has content:", !!completion?.choices?.[0]?.message?.content);
     const content = completion?.choices?.[0]?.message?.content;
     if (!content) {
       console.error("OpenAI response missing content");
       throw new Error("Invalid API response format");
     }
 
-    return JSON.parse(content);
+    const parsed = JSON.parse(content);
+    console.log("[DEBUG] Successfully parsed OpenAI response");
+    return parsed;
   } catch (error) {
-    console.error("OpenAI fetch error:", error);
+    console.error("[ERROR] OpenAI fetch error:", error.message, error);
     throw error;
   }
 };
@@ -1059,12 +1067,21 @@ MOOD: Genuine, trustworthy, relatable`;
 
         // Call OpenAI Sora API with form-data (official format)
         const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+        console.log("[DEBUG] Sora API Key exists:", !!apiKey, "Length:", apiKey?.length);
 
         const videoFormData = new FormData();
         videoFormData.append('model', 'sora-2');
         videoFormData.append('prompt', prompt);
         videoFormData.append('seconds', '8');
         videoFormData.append('size', '1080x1920');
+
+        console.log("[DEBUG] Calling Sora API: POST https://api.openai.com/v1/videos");
+        console.log("[DEBUG] Sora request params:", {
+          model: 'sora-2',
+          seconds: '8',
+          size: '1080x1920',
+          promptLength: prompt.length
+        });
 
         const response = await fetch("https://api.openai.com/v1/videos", {
           method: "POST",
@@ -1074,9 +1091,11 @@ MOOD: Genuine, trustworthy, relatable`;
           body: videoFormData,
         });
 
+        console.log("[DEBUG] Sora Response Status:", response.status, response.statusText);
+
         if (!response.ok) {
           const errorText = await response.text().catch(() => "");
-          console.error(`Sora API ${response.status} response:`, errorText);
+          console.error(`[ERROR] Sora API ${response.status} response:`, errorText);
           throw new Error(`Sora API error: ${response.status}`);
         }
 
