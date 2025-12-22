@@ -1,4 +1,8 @@
+import dotenv from 'dotenv';
 import express from 'express';
+
+// Load .env.local file
+dotenv.config({ path: '.env.local' });
 import cors from 'cors';
 import fetch from 'node-fetch';
 import FormData from 'form-data';
