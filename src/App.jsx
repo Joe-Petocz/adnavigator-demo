@@ -196,7 +196,7 @@ const generateCreative = (companyName = "MyBrand.com") => {
 };
 
 const OPENAI_MODEL = "gpt-4o-mini";
-const OPENAI_ENDPOINT = "https://api.openai.com/v1/chat/completions";
+const OPENAI_ENDPOINT = "/api/openai/chat"; // Backend proxy endpoint
 
 const ensureArray = (value, fallback) => {
   if (Array.isArray(value) && value.length) {
@@ -220,21 +220,12 @@ const ensureString = (value, fallback) => {
 };
 
 const fetchFromOpenAI = async ({ systemPrompt, userPayload }) => {
-  const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
-  console.log("[DEBUG] OpenAI API Key exists:", !!apiKey, "Length:", apiKey?.length);
-
-  if (!apiKey) {
-    console.error("OpenAI API Key not found. Please set VITE_OPENAI_API_KEY in Railway environment variables.");
-    throw new Error("OpenAI API configuration missing. Using demo data instead.");
-  }
-
   try {
-    console.log("[DEBUG] Calling OpenAI API:", OPENAI_ENDPOINT, "Model:", OPENAI_MODEL);
+    console.log("[DEBUG] Calling OpenAI API via backend proxy:", OPENAI_ENDPOINT, "Model:", OPENAI_MODEL);
     const response = await fetch(OPENAI_ENDPOINT, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         model: OPENAI_MODEL,
@@ -1065,17 +1056,8 @@ MOOD: Genuine, trustworthy, relatable`;
         // Start with initial progress
         setProgress(10);
 
-        // Call OpenAI Sora API with form-data (official format)
-        const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
-        console.log("[DEBUG] Sora API Key exists:", !!apiKey, "Length:", apiKey?.length);
-
-        const videoFormData = new FormData();
-        videoFormData.append('model', 'sora-2-pro');
-        videoFormData.append('prompt', prompt);
-        videoFormData.append('seconds', '8');
-        videoFormData.append('size', '720x1280');  // Vertical format for mobile
-
-        console.log("[DEBUG] Calling Sora API: POST https://api.openai.com/v1/videos");
+        // Call OpenAI Sora API via backend proxy
+        console.log("[DEBUG] Calling Sora API via backend proxy: POST /api/sora/videos");
         console.log("[DEBUG] Sora request params:", {
           model: 'sora-2-pro',
           seconds: '8',
@@ -1083,13 +1065,17 @@ MOOD: Genuine, trustworthy, relatable`;
           promptLength: prompt.length
         });
 
-        // Note: Do NOT set Content-Type header - browser will set it automatically with boundary for multipart/form-data
-        const response = await fetch("https://api.openai.com/v1/videos", {
+        const response = await fetch("/api/sora/videos", {
           method: "POST",
           headers: {
-            "Authorization": `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
           },
-          body: videoFormData,
+          body: JSON.stringify({
+            model: 'sora-2-pro',
+            prompt: prompt,
+            seconds: '8',
+            size: '720x1280',
+          }),
         });
 
         console.log("[DEBUG] Sora Response Status:", response.status, response.statusText);
@@ -1121,11 +1107,7 @@ MOOD: Genuine, trustworthy, relatable`;
         while (pollAttempts < maxPolls && isMounted) {
           await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
 
-          const statusResponse = await fetch(`https://api.openai.com/v1/videos/${videoId}`, {
-            headers: {
-              "Authorization": `Bearer ${apiKey}`,
-            },
-          });
+          const statusResponse = await fetch(`/api/sora/videos/${videoId}`);
 
           const statusResult = await statusResponse.json();
           console.log("Video status:", statusResult.status);
