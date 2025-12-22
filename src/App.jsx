@@ -1060,18 +1060,18 @@ MOOD: Genuine, trustworthy, relatable`;
         // Call OpenAI Sora API with form-data (official format)
         const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
 
-        const formData = new FormData();
-        formData.append('model', 'sora-2');
-        formData.append('prompt', prompt);
-        formData.append('seconds', '8');
-        formData.append('size', '1080x1920');
+        const videoFormData = new FormData();
+        videoFormData.append('model', 'sora-2');
+        videoFormData.append('prompt', prompt);
+        videoFormData.append('seconds', '8');
+        videoFormData.append('size', '1080x1920');
 
         const response = await fetch("https://api.openai.com/v1/videos", {
           method: "POST",
           headers: {
             "Authorization": `Bearer ${apiKey}`,
           },
-          body: formData,
+          body: videoFormData,
         });
 
         if (!response.ok) {
