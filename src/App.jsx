@@ -1027,7 +1027,7 @@ const CreativeRevealStep = ({ data, onNext, formData, videoProgress = null, vide
 );
 
 // Wrapper to handle video generation timing
-const CreativeRevealStepWrapper = ({ data, onNext, formData }) => {
+const CreativeRevealStepWrapper = ({ data, onNext, formData, onVideoReady }) => {
   const [progress, setProgress] = useState(0);
   const [videoReady, setVideoReady] = useState(false);
 
@@ -1132,6 +1132,10 @@ MOOD: Genuine, trustworthy, relatable`;
               setVideoUrl(videoUrl);
               setVideoReady(true);
               console.log("Video ready:", videoUrl);
+              // Notify parent component of video URL
+              if (onVideoReady) {
+                onVideoReady(videoUrl);
+              }
             }
             break;
           } else if (statusResult.status === "failed") {
@@ -1214,7 +1218,7 @@ const DemoVideoStep = ({ onNext }) => (
   </div>
 );
 
-const DeployStep = ({ onNext, onWatchDemo, creativeData, formData }) => {
+const DeployStep = ({ onNext, onWatchDemo, creativeData, formData, videoUrl }) => {
   const [isDeploying, setIsDeploying] = useState(false);
   const [deploymentResult, setDeploymentResult] = useState(null);
 
@@ -1223,7 +1227,7 @@ const DeployStep = ({ onNext, onWatchDemo, creativeData, formData }) => {
     setDeploymentResult(null);
 
     try {
-      const result = await deployAdCampaign(creativeData, formData);
+      const result = await deployAdCampaign(creativeData, formData, videoUrl);
       setDeploymentResult(result);
 
       if (result.success) {
@@ -1398,6 +1402,7 @@ export default function App() {
   const [analysisData, setAnalysisData] = useState(null);
   const [creativeData, setCreativeData] = useState(null);
   const [siteSnapshot, setSiteSnapshot] = useState(null);
+  const [videoUrl, setVideoUrl] = useState(null);
 
   const handleAnalysisComplete = (data) => {
     console.log("handleAnalysisComplete called, advancing to step 3");
@@ -1509,13 +1514,14 @@ export default function App() {
               onComplete={handleCreativeComplete}
             />
           )}
-          {step === 5 && creativeData && <CreativeRevealStepWrapper data={creativeData} formData={formData} onNext={() => setStep(6)} />}
+          {step === 5 && creativeData && <CreativeRevealStepWrapper data={creativeData} formData={formData} onNext={() => setStep(6)} onVideoReady={setVideoUrl} />}
           {step === 6 && (
             <DeployStep
               onNext={() => setStep(7)}
               onWatchDemo={() => setStep(6.1)}
               creativeData={creativeData}
               formData={formData}
+              videoUrl={videoUrl}
             />
           )}
           {step === 6.1 && <DemoVideoStep onNext={() => setStep(7)} />}
