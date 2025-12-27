@@ -45,7 +45,12 @@ export const initFacebookSDK = () => {
           version: FB_API_VERSION
         });
         console.log('✅ Facebook SDK initialized successfully');
-        resolve();
+
+        // Give FB SDK extra time to set up all methods after init
+        setTimeout(() => {
+          console.log('✅ Facebook SDK fully ready');
+          resolve();
+        }, 1000);
       } catch (error) {
         console.error('❌ Error in FB.init:', error);
         reject(error);
@@ -432,12 +437,14 @@ export const deployAdCampaign = async (creativeData, formData, videoUrl = null) 
     console.log('Creative data:', creativeData);
     console.log('Form data:', formData);
 
-    // 1. Initialize Facebook SDK
+    // 1. Initialize Facebook SDK (includes 1s wait after FB.init)
     await initFacebookSDK();
-    console.log('Facebook SDK initialized');
+    console.log('✅ Facebook SDK ready for login');
 
-    // Wait a bit to ensure SDK is fully ready
-    await new Promise(resolve => setTimeout(resolve, 500));
+    // Verify FB is ready
+    if (!window.FB) {
+      throw new Error('Facebook SDK did not initialize properly');
+    }
 
     // 2. Login and get access token
     const authResponse = await loginWithFacebook();
