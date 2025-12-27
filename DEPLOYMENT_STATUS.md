@@ -52,9 +52,14 @@ Make sure these are set in Railway dashboard:
    - Starts with `sk-proj-...`
    - Get from: https://platform.openai.com/api-keys
 
-2. **VITE_FACEBOOK_APP_ID** (Optional)
+2. **VITE_FACEBOOK_APP_ID** (Required for Facebook integration)
    ```
    853455260538900
+   ```
+
+3. **VITE_FACEBOOK_APP_SECRET** (Required for Facebook integration)
+   ```
+   d01f93007675bf565e9a91f38db14f09
    ```
 
 ## Deployment Verification
