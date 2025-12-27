@@ -7,37 +7,83 @@ const FB_API_VERSION = 'v21.0';
  * Initialize Facebook SDK
  */
 export const initFacebookSDK = () => {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
+    console.log('🔵 initFacebookSDK called');
+    console.log('🔵 FB_APP_ID:', FB_APP_ID);
+
+    // Check if App ID is configured
+    if (!FB_APP_ID) {
+      console.error('❌ Facebook App ID not configured');
+      reject(new Error('Facebook App ID not configured. Please set VITE_FACEBOOK_APP_ID in your environment variables.'));
+      return;
+    }
+
     // If FB is already loaded and initialized, resolve immediately
     if (window.FB) {
-      console.log('Facebook SDK already initialized');
+      console.log('✅ Facebook SDK already initialized');
       resolve();
       return;
     }
 
+    // Set up timeout to reject if SDK doesn't load
+    const timeout = setTimeout(() => {
+      console.error('❌ Facebook SDK load timeout');
+      reject(new Error('Facebook SDK failed to load within 10 seconds'));
+    }, 10000);
+
     // Load Facebook SDK
     window.fbAsyncInit = function() {
-      console.log('Facebook SDK initializing...');
-      window.FB.init({
-        appId: FB_APP_ID,
-        cookie: true,
-        xfbml: true,
-        version: FB_API_VERSION
-      });
-      console.log('Facebook SDK initialized successfully');
-      resolve();
+      console.log('🔵 fbAsyncInit callback fired');
+      clearTimeout(timeout);
+
+      try {
+        console.log('🔵 Calling FB.init...');
+        window.FB.init({
+          appId: FB_APP_ID,
+          cookie: true,
+          xfbml: true,
+          version: FB_API_VERSION
+        });
+        console.log('✅ Facebook SDK initialized successfully');
+        resolve();
+      } catch (error) {
+        console.error('❌ Error in FB.init:', error);
+        reject(error);
+      }
     };
 
     // Load SDK script
     if (!document.getElementById('facebook-jssdk')) {
-      console.log('Loading Facebook SDK script...');
+      console.log('🔵 Loading Facebook SDK script...');
       const script = document.createElement('script');
       script.id = 'facebook-jssdk';
       script.src = 'https://connect.facebook.net/en_US/sdk.js';
       script.async = true;
       script.defer = true;
       script.crossOrigin = 'anonymous';
+
+      script.onerror = (error) => {
+        console.error('❌ Failed to load Facebook SDK script:', error);
+        clearTimeout(timeout);
+        reject(new Error('Failed to load Facebook SDK script'));
+      };
+
+      script.onload = () => {
+        console.log('✅ Facebook SDK script loaded');
+      };
+
       document.body.appendChild(script);
+      console.log('🔵 SDK script tag added to body');
+    } else {
+      console.log('⚠️ SDK script already exists in DOM');
+      // Script exists but fbAsyncInit might not have fired yet
+      // Give it a moment then check
+      setTimeout(() => {
+        if (window.FB) {
+          clearTimeout(timeout);
+          resolve();
+        }
+      }, 100);
     }
   });
 };

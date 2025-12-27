@@ -1256,11 +1256,14 @@ const DeployStep = ({ onNext, onWatchDemo, creativeData, formData, videoUrl }) =
   const [deploymentResult, setDeploymentResult] = useState(null);
 
   const handleFacebookConnect = async () => {
+    console.log('🔵 handleFacebookConnect called');
     setIsDeploying(true);
     setDeploymentResult(null);
 
     try {
+      console.log('🔵 Calling deployAdCampaign...');
       const result = await deployAdCampaign(creativeData, formData, videoUrl);
+      console.log('🔵 deployAdCampaign result:', result);
       setDeploymentResult(result);
 
       if (result.success) {
@@ -1270,11 +1273,13 @@ const DeployStep = ({ onNext, onWatchDemo, creativeData, formData, videoUrl }) =
         }, 2000);
       }
     } catch (error) {
+      console.error('🔴 Error in handleFacebookConnect:', error);
       setDeploymentResult({
         success: false,
         error: error.message || 'Failed to connect to Facebook'
       });
     } finally {
+      console.log('🔵 Setting isDeploying to false');
       setIsDeploying(false);
     }
   };
