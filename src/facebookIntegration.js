@@ -8,26 +8,36 @@ const FB_API_VERSION = 'v21.0';
  */
 export const initFacebookSDK = () => {
   return new Promise((resolve) => {
+    // If FB is already loaded and initialized, resolve immediately
+    if (window.FB) {
+      console.log('Facebook SDK already initialized');
+      resolve();
+      return;
+    }
+
     // Load Facebook SDK
     window.fbAsyncInit = function() {
+      console.log('Facebook SDK initializing...');
       window.FB.init({
         appId: FB_APP_ID,
         cookie: true,
         xfbml: true,
         version: FB_API_VERSION
       });
+      console.log('Facebook SDK initialized successfully');
       resolve();
     };
 
     // Load SDK script
     if (!document.getElementById('facebook-jssdk')) {
+      console.log('Loading Facebook SDK script...');
       const script = document.createElement('script');
       script.id = 'facebook-jssdk';
       script.src = 'https://connect.facebook.net/en_US/sdk.js';
+      script.async = true;
+      script.defer = true;
+      script.crossOrigin = 'anonymous';
       document.body.appendChild(script);
-    } else {
-      // SDK already loaded
-      resolve();
     }
   });
 };
@@ -38,16 +48,22 @@ export const initFacebookSDK = () => {
 export const loginWithFacebook = () => {
   return new Promise((resolve, reject) => {
     if (!window.FB) {
+      console.error('Facebook SDK not available on window object');
       reject(new Error('Facebook SDK not initialized. Call initFacebookSDK() first.'));
       return;
     }
 
+    console.log('Calling FB.login with permissions...');
+
     window.FB.login(
       (response) => {
+        console.log('FB.login response:', response);
+
         if (response.authResponse) {
-          console.log('Facebook login successful');
+          console.log('Facebook login successful', response.authResponse);
           resolve(response.authResponse);
         } else {
+          console.log('Facebook login failed or cancelled', response);
           reject(new Error('User cancelled login or did not fully authorize.'));
         }
       },
@@ -57,6 +73,29 @@ export const loginWithFacebook = () => {
       }
     );
   });
+};
+
+/**
+ * Get user's Facebook Pages
+ */
+export const getFacebookPages = async (accessToken) => {
+  try {
+    const response = await fetch(
+      `https://graph.facebook.com/${FB_API_VERSION}/me/accounts?fields=id,name,access_token&access_token=${accessToken}`
+    );
+    const data = await response.json();
+
+    if (data.error) {
+      console.error('Pages fetch error:', data.error);
+      throw new Error(data.error.message);
+    }
+
+    console.log('Facebook pages:', data.data);
+    return data.data;
+  } catch (error) {
+    console.error('Error fetching pages:', error);
+    throw error;
+  }
 };
 
 /**
@@ -227,13 +266,13 @@ export const uploadVideoCreative = async (accessToken, adAccountId, videoUrl) =>
  */
 export const createAdCreative = async (accessToken, adAccountId, creativeData) => {
   try {
-    const { headlines, primaryText, cta, website, videoId } = creativeData;
+    const { headlines, primaryText, cta, website, videoId, pageId } = creativeData;
 
     const creativePayload = {
       access_token: accessToken,
       name: `Creative - ${headlines[0].substring(0, 30)}`,
       object_story_spec: {
-        page_id: null, // Will be set by user's page
+        page_id: pageId, // Facebook Page ID
         link_data: {
           link: website,
           message: primaryText,
@@ -351,12 +390,26 @@ export const deployAdCampaign = async (creativeData, formData, videoUrl = null) 
     await initFacebookSDK();
     console.log('Facebook SDK initialized');
 
+    // Wait a bit to ensure SDK is fully ready
+    await new Promise(resolve => setTimeout(resolve, 500));
+
     // 2. Login and get access token
     const authResponse = await loginWithFacebook();
     const accessToken = authResponse.accessToken;
     console.log('User authenticated');
 
-    // 3. Get ad accounts
+    // 3. Get Facebook Pages
+    const pages = await getFacebookPages(accessToken);
+
+    if (!pages || pages.length === 0) {
+      throw new Error('No Facebook Pages found. Please create a Facebook Page to run ads.');
+    }
+
+    // Use first page
+    const page = pages[0];
+    console.log('Using Facebook Page:', page.name);
+
+    // 4. Get ad accounts
     const adAccounts = await getAdAccounts(accessToken);
 
     if (!adAccounts || adAccounts.length === 0) {
@@ -395,7 +448,8 @@ export const deployAdCampaign = async (creativeData, formData, videoUrl = null) 
       primaryText: creativeData.primaryText,
       cta: creativeData.ctas && creativeData.ctas[0] ? creativeData.ctas[0].toUpperCase().replace(/\s+/g, '_') : 'LEARN_MORE',
       website: formData.website,
-      videoId: videoId
+      videoId: videoId,
+      pageId: page.id
     });
 
     // 8. Create the ad

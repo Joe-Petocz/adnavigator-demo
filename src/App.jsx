@@ -26,6 +26,10 @@ import {
 import "./index.css";
 import { deployAdCampaign } from "./facebookIntegration";
 
+// FEATURE FLAG: Set to false to use placeholder video and skip expensive Sora API calls ($1 per video)
+// Set to true when ready to go live with real video generation
+const ENABLE_REAL_VIDEO_GENERATION = false;
+
 const GOLD_GRADIENT = "bg-gradient-to-r from-[#FDFBF7] via-[#D4AF37] to-[#AA8220]";
 const TEXT_GRADIENT =
   "bg-clip-text text-transparent bg-gradient-to-r from-[#FDFBF7] via-[#D4AF37] to-[#AA8220]";
@@ -1040,6 +1044,35 @@ const CreativeRevealStepWrapper = ({ data, onNext, formData, onVideoReady }) => 
 
     const generateVideo = async () => {
       try {
+        // FEATURE FLAG: Skip expensive Sora API calls during testing
+        if (!ENABLE_REAL_VIDEO_GENERATION) {
+          console.log("🎬 Using placeholder video (ENABLE_REAL_VIDEO_GENERATION = false)");
+
+          // Simulate video generation progress
+          setProgress(30);
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          setProgress(60);
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          setProgress(90);
+          await new Promise(resolve => setTimeout(resolve, 500));
+
+          // Use a public placeholder video URL (free stock video)
+          const placeholderVideoUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
+
+          if (isMounted) {
+            setProgress(100);
+            setVideoUrl(placeholderVideoUrl);
+            setVideoReady(true);
+            console.log("✅ Placeholder video ready:", placeholderVideoUrl);
+
+            // Notify parent component of video URL
+            if (onVideoReady) {
+              onVideoReady(placeholderVideoUrl);
+            }
+          }
+          return;
+        }
+
         console.log("Starting Sora video generation...");
 
         // Generate video prompt from form data
