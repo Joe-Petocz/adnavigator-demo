@@ -5,13 +5,9 @@ nixPkgs = ['nodejs_20']
 cmds = ['npm ci']
 
 [phases.build]
-cmds = ['npm run build']
-
-# Make environment variables available during build
-[variables]
-VITE_FACEBOOK_APP_ID = '$VITE_FACEBOOK_APP_ID'
-VITE_FACEBOOK_APP_SECRET = '$VITE_FACEBOOK_APP_SECRET'
-VITE_OPENAI_API_KEY = '$VITE_OPENAI_API_KEY'
+cmds = [
+  'echo "Building with env vars..." && export && npm run build'
+]
 
 [start]
 cmd = 'npm start'
