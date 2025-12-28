@@ -194,4 +194,10 @@ app.get('*', (req, res) => {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`[INFO] Server running on http://0.0.0.0:${PORT}`);
   console.log(`[INFO] API key configured: ${!!process.env.VITE_OPENAI_API_KEY}`);
+  console.log(`[INFO] Facebook App ID configured: ${!!process.env.VITE_FACEBOOK_APP_ID}`);
+  console.log(`[INFO] Node version: ${process.version}`);
+  console.log(`[INFO] Environment: ${process.env.NODE_ENV || 'development'}`);
+}).on('error', (err) => {
+  console.error('[FATAL] Failed to start server:', err);
+  process.exit(1);
 });
