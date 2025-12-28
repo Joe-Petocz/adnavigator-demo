@@ -39,9 +39,12 @@ RUN npm ci --production
 # Copy built assets from builder
 COPY --from=builder /app/dist ./dist
 
-# Copy server and routes
+# Copy server, routes, lib, and prompts
 COPY server.js ./
 COPY routes ./routes
+COPY lib ./lib
+COPY prompts ./prompts
+COPY data ./data
 
 # Expose port
 EXPOSE 8080
