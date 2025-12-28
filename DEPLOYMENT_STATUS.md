@@ -205,6 +205,7 @@ Check Railway dashboard:
 
 ---
 
-*Last Updated: 2025-12-22*
-*Latest Commit: 18fb9b9*
+*Last Updated: 2025-12-27*
+*Status: Fixing Railway deployment (502 error)*
+*Action: Triggering redeploy with data directory fix*
 *Deployed To: Railway → https://demo.adnavigator.app/*
