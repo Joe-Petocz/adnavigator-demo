@@ -310,11 +310,58 @@ export const uploadVideoCreative = async (accessToken, adAccountId, videoUrl) =>
 };
 
 /**
+ * Normalize AI-generated CTA text to Meta's enum format
+ */
+const normalizeCTA = (ctaText) => {
+  if (!ctaText) return 'LEARN_MORE';
+
+  const normalized = ctaText.toLowerCase().trim();
+
+  const ctaMap = {
+    'get quote': 'GET_QUOTE',
+    'request quote': 'GET_QUOTE',
+    'book now': 'BOOK_NOW',
+    'learn more': 'LEARN_MORE',
+    'sign up': 'SIGN_UP',
+    'contact us': 'CONTACT_US',
+    'message': 'MESSAGE_PAGE',
+    'send message': 'MESSAGE_PAGE',
+    'call now': 'CALL_NOW',
+    'apply now': 'APPLY_NOW',
+    'download': 'DOWNLOAD',
+    'shop now': 'SHOP_NOW',
+    'no button': 'NO_BUTTON',
+    'watch more': 'WATCH_MORE',
+    'get offer': 'GET_OFFER',
+    'subscribe': 'SUBSCRIBE',
+  };
+
+  // Direct match
+  if (ctaMap[normalized]) {
+    return ctaMap[normalized];
+  }
+
+  // Partial match
+  for (const [key, value] of Object.entries(ctaMap)) {
+    if (normalized.includes(key) || key.includes(normalized)) {
+      return value;
+    }
+  }
+
+  // Default fallback
+  return 'LEARN_MORE';
+};
+
+/**
  * Create ad creative with headlines, primary text, CTA, and video
  */
 export const createAdCreative = async (accessToken, adAccountId, creativeData) => {
   try {
     const { headlines, primaryText, cta, website, videoId, pageId } = creativeData;
+
+    // Normalize CTA to Meta enum
+    const normalizedCTA = normalizeCTA(cta);
+    console.log(`CTA normalization: "${cta}" -> "${normalizedCTA}"`);
 
     const creativePayload = {
       access_token: accessToken,
@@ -327,7 +374,7 @@ export const createAdCreative = async (accessToken, adAccountId, creativeData) =
           name: headlines[0], // Primary headline
           description: headlines[1] || '', // Secondary headline
           call_to_action: {
-            type: cta || 'LEARN_MORE',
+            type: normalizedCTA,
             value: {
               link: website
             }
@@ -350,7 +397,7 @@ export const createAdCreative = async (accessToken, adAccountId, creativeData) =
         message: primaryText,
         title: headlines[0],
         call_to_action: {
-          type: cta || 'LEARN_MORE',
+          type: normalizedCTA,
           value: {
             link: website
           }
@@ -358,6 +405,8 @@ export const createAdCreative = async (accessToken, adAccountId, creativeData) =
       };
       delete creativePayload.object_story_spec.link_data;
     }
+
+    console.log('Creative payload:', JSON.stringify(creativePayload, null, 2));
 
     const response = await fetch(
       `https://graph.facebook.com/${FB_API_VERSION}/${adAccountId}/adcreatives`,
@@ -374,7 +423,8 @@ export const createAdCreative = async (accessToken, adAccountId, creativeData) =
 
     if (data.error) {
       console.error('Creative creation error:', data.error);
-      throw new Error(data.error.message);
+      console.error('Full creative error details:', JSON.stringify(data.error, null, 2));
+      throw new Error(data.error.message || 'Creative creation failed');
     }
 
     console.log('Creative created:', data);
@@ -496,7 +546,7 @@ export const deployAdCampaign = async (creativeData, formData, videoUrl = null) 
     const creative = await createAdCreative(accessToken, activeAccount.id, {
       headlines: creativeData.headlines,
       primaryText: creativeData.primaryText,
-      cta: creativeData.ctas && creativeData.ctas[0] ? creativeData.ctas[0].toUpperCase().replace(/\s+/g, '_') : 'LEARN_MORE',
+      cta: creativeData.ctas && creativeData.ctas[0] ? creativeData.ctas[0] : 'Learn More',
       website: formData.website,
       videoId: videoId,
       pageId: page.id
