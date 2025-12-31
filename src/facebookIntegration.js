@@ -231,7 +231,7 @@ export const createAdSet = async (accessToken, adAccountId, campaignId, adSetDat
       campaign_id: campaignId,
       optimization_goal: 'LEAD_GENERATION',
       billing_event: 'IMPRESSIONS',
-      bid_strategy: 'LOWEST_COST', // Simple lowest cost, no bid cap required
+      bid_strategy: 'LOWEST_COST_WITHOUT_CAP', // Highest Volume / Lowest Cost (no cap)
       daily_budget: 500, // $5.00 in cents
       status: 'PAUSED',
       // Simple US-wide targeting (most reliable for demo)
