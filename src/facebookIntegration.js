@@ -222,6 +222,7 @@ export const createAdSet = async (accessToken, adAccountId, campaignId, adSetDat
   try {
     const { city, state, radiusMiles, website } = adSetData;
 
+    // Use custom_locations with address_string for more reliable geo-targeting
     const response = await fetch(
       `https://graph.facebook.com/${FB_API_VERSION}/${adAccountId}/adsets`,
       {
@@ -235,14 +236,14 @@ export const createAdSet = async (accessToken, adAccountId, campaignId, adSetDat
           campaign_id: campaignId,
           billing_event: 'IMPRESSIONS',
           optimization_goal: 'LEAD_GENERATION',
-          bid_strategy: 'LOWEST_COST_WITHOUT_CAP', // Lowest cost bid
+          bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
           status: 'PAUSED',
-          // Geo-targeting: city + state + radius
+          // Simplified geo-targeting using custom locations
           targeting: {
             geo_locations: {
-              cities: [
+              custom_locations: [
                 {
-                  key: `${city},${state}`, // Format: "CityName,ST"
+                  address_string: `${city}, ${state}`,
                   radius: radiusMiles,
                   distance_unit: 'mile'
                 }
@@ -251,12 +252,6 @@ export const createAdSet = async (accessToken, adAccountId, campaignId, adSetDat
             age_min: 25,
             age_max: 65,
           },
-          // Promoted object (website destination)
-          promoted_object: {
-            pixel_id: null, // Can add pixel if available
-            custom_event_type: 'LEAD'
-          },
-          destination_type: 'WEBSITE',
         })
       }
     );

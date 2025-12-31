@@ -1056,8 +1056,8 @@ const CreativeRevealStepWrapper = ({ data, onNext, formData, onVideoReady }) => 
           setProgress(90);
           await new Promise(resolve => setTimeout(resolve, 500));
 
-          // Use a public placeholder video URL (free stock video)
-          const placeholderVideoUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
+          // Use a shorter 1-minute placeholder video URL (instead of 10-minute Big Buck Bunny)
+          const placeholderVideoUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4";
 
           if (isMounted) {
             setProgress(100);
