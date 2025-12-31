@@ -185,6 +185,7 @@ export const createCampaign = async (accessToken, adAccountId, campaignData) => 
       objective: 'OUTCOME_LEADS',
       status: 'PAUSED',
       special_ad_categories: [],
+      is_adset_budget_sharing_enabled: false, // Using ad-set level budgets, not CBO
     };
 
     console.log('Campaign creation payload:', JSON.stringify(payload, null, 2));
