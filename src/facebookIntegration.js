@@ -225,6 +225,27 @@ export const createAdSet = async (accessToken, adAccountId, campaignId, adSetDat
   try {
     const { city, state } = adSetData;
 
+    const adSetPayload = {
+      access_token: accessToken,
+      name: `${city}, ${state} - Demo Ad Set`,
+      campaign_id: campaignId,
+      optimization_goal: 'LEAD_GENERATION',
+      billing_event: 'IMPRESSIONS',
+      bid_strategy: 'LOWEST_COST', // Simple lowest cost, no bid cap required
+      daily_budget: 500, // $5.00 in cents
+      status: 'PAUSED',
+      // Simple US-wide targeting (most reliable for demo)
+      targeting: {
+        geo_locations: {
+          countries: ['US']
+        },
+        age_min: 25,
+        age_max: 65,
+      },
+    };
+
+    console.log('Ad set creation payload:', JSON.stringify(adSetPayload, null, 2));
+
     const response = await fetch(
       `https://graph.facebook.com/${FB_API_VERSION}/${adAccountId}/adsets`,
       {
@@ -232,23 +253,7 @@ export const createAdSet = async (accessToken, adAccountId, campaignId, adSetDat
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          access_token: accessToken,
-          name: `${city}, ${state} - Demo Ad Set`,
-          campaign_id: campaignId,
-          optimization_goal: 'LEAD_GENERATION',
-          billing_event: 'IMPRESSIONS',
-          daily_budget: 500, // $5.00 in cents
-          status: 'PAUSED',
-          // Simple US-wide targeting (most reliable for demo)
-          targeting: {
-            geo_locations: {
-              countries: ['US']
-            },
-            age_min: 25,
-            age_max: 65,
-          },
-        })
+        body: JSON.stringify(adSetPayload)
       }
     );
 
