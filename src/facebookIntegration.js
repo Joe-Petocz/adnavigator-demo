@@ -179,6 +179,16 @@ export const createCampaign = async (accessToken, adAccountId, campaignData) => 
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
     const companyName = campaignData.companyName || 'Business';
 
+    const payload = {
+      access_token: accessToken,
+      name: `Lead Campaign - ${companyName} - ${today}`,
+      objective: 'OUTCOME_LEADS',
+      status: 'PAUSED',
+      special_ad_categories: [],
+    };
+
+    console.log('Campaign creation payload:', JSON.stringify(payload, null, 2));
+
     const response = await fetch(
       `https://graph.facebook.com/${FB_API_VERSION}/${adAccountId}/campaigns`,
       {
@@ -186,13 +196,7 @@ export const createCampaign = async (accessToken, adAccountId, campaignData) => 
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          access_token: accessToken,
-          name: `Lead Campaign - ${companyName} - ${today}`,
-          objective: 'OUTCOME_LEADS', // Lead generation objective
-          status: 'PAUSED', // Start paused for safety
-          special_ad_categories: [],
-        })
+        body: JSON.stringify(payload)
       }
     );
 
@@ -200,7 +204,8 @@ export const createCampaign = async (accessToken, adAccountId, campaignData) => 
 
     if (data.error) {
       console.error('Campaign creation error:', data.error);
-      throw new Error(data.error.message);
+      console.error('Full campaign error details:', JSON.stringify(data.error, null, 2));
+      throw new Error(data.error.message || 'Campaign creation failed');
     }
 
     console.log('Campaign created:', data);
