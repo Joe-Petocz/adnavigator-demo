@@ -220,22 +220,7 @@ export const createCampaign = async (accessToken, adAccountId, campaignData) => 
  */
 export const createAdSet = async (accessToken, adAccountId, campaignId, adSetData) => {
   try {
-    const { city, state, radiusMiles } = adSetData;
-
-    // Map US state abbreviations to Facebook region keys
-    const stateKeys = {
-      'AL': '3843', 'AK': '3844', 'AZ': '3845', 'AR': '3846', 'CA': '3847', 'CO': '3848',
-      'CT': '3849', 'DE': '3850', 'FL': '3851', 'GA': '3852', 'HI': '3853', 'ID': '3854',
-      'IL': '3855', 'IN': '3856', 'IA': '3857', 'KS': '3858', 'KY': '3859', 'LA': '3860',
-      'ME': '3861', 'MD': '3862', 'MA': '3863', 'MI': '3864', 'MN': '3865', 'MS': '3866',
-      'MO': '3867', 'MT': '3868', 'NE': '3869', 'NV': '3870', 'NH': '3871', 'NJ': '3872',
-      'NM': '3873', 'NY': '3874', 'NC': '3875', 'ND': '3876', 'OH': '3877', 'OK': '3878',
-      'OR': '3879', 'PA': '3880', 'RI': '3881', 'SC': '3882', 'SD': '3883', 'TN': '3884',
-      'TX': '3885', 'UT': '3886', 'VT': '3887', 'VA': '3888', 'WA': '3889', 'WV': '3890',
-      'WI': '3891', 'WY': '3892', 'DC': '3893'
-    };
-
-    const stateKey = stateKeys[state.toUpperCase()];
+    const { city, state } = adSetData;
 
     const response = await fetch(
       `https://graph.facebook.com/${FB_API_VERSION}/${adAccountId}/adsets`,
@@ -246,17 +231,16 @@ export const createAdSet = async (accessToken, adAccountId, campaignId, adSetDat
         },
         body: JSON.stringify({
           access_token: accessToken,
-          name: `${city}, ${state} - ${radiusMiles}mi radius`,
+          name: `${city}, ${state} - Demo Ad Set`,
           campaign_id: campaignId,
           billing_event: 'IMPRESSIONS',
           optimization_goal: 'LEAD_GENERATION',
           bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
           status: 'PAUSED',
-          // Target by state (region) - simpler and more reliable
+          // Simple US-wide targeting (most reliable for demo)
           targeting: {
             geo_locations: {
-              countries: ['US'],
-              regions: stateKey ? [{ key: stateKey }] : undefined
+              countries: ['US']
             },
             age_min: 25,
             age_max: 65,
