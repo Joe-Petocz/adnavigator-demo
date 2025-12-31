@@ -233,7 +233,7 @@ export const createAdSet = async (accessToken, adAccountId, campaignId, adSetDat
           access_token: accessToken,
           name: `${city}, ${state} - Demo Ad Set`,
           campaign_id: campaignId,
-          optimization_goal: 'OUTCOME_LEADS',
+          optimization_goal: 'LEAD_GENERATION',
           billing_event: 'IMPRESSIONS',
           status: 'PAUSED',
           // Simple US-wide targeting (most reliable for demo)
