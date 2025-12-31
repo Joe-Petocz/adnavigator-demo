@@ -252,7 +252,8 @@ export const createAdSet = async (accessToken, adAccountId, campaignId, adSetDat
 
     if (data.error) {
       console.error('Ad set creation error:', data.error);
-      throw new Error(data.error.message);
+      console.error('Full error details:', JSON.stringify(data.error, null, 2));
+      throw new Error(data.error.message || 'Ad set creation failed');
     }
 
     console.log('Ad set created:', data);
