@@ -192,9 +192,6 @@ export const createCampaign = async (accessToken, adAccountId, campaignData) => 
           objective: 'OUTCOME_LEADS', // Lead generation objective
           status: 'PAUSED', // Start paused for safety
           special_ad_categories: [],
-          // CBO (Campaign Budget Optimization)
-          budget_optimization: true,
-          daily_budget: 500, // $5.00 in cents
         })
       }
     );
@@ -235,6 +232,7 @@ export const createAdSet = async (accessToken, adAccountId, campaignId, adSetDat
           campaign_id: campaignId,
           optimization_goal: 'LEAD_GENERATION',
           billing_event: 'IMPRESSIONS',
+          daily_budget: 500, // $5.00 in cents
           status: 'PAUSED',
           // Simple US-wide targeting (most reliable for demo)
           targeting: {
