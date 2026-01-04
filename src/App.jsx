@@ -1251,14 +1251,141 @@ const DemoVideoStep = ({ onNext }) => (
   </div>
 );
 
+const CampaignBuildingStep = ({ adAccountUrl, onComplete }) => {
+  const [progress, setProgress] = useState([
+    { step: 'Campaign Created', status: 'completed' },
+    { step: 'Ad Set Configured', status: 'completed' },
+    { step: 'Video Uploaded', status: 'completed' },
+    { step: 'Creative Built', status: 'in_progress' },
+    { step: 'Ad Published', status: 'pending' },
+  ]);
+
+  useEffect(() => {
+    // Simulate progress updates
+    const timer1 = setTimeout(() => {
+      setProgress(prev => prev.map((item, idx) =>
+        idx === 3 ? { ...item, status: 'completed' } : item
+      ));
+    }, 1500);
+
+    const timer2 = setTimeout(() => {
+      setProgress(prev => prev.map((item, idx) =>
+        idx === 4 ? { ...item, status: 'in_progress' } : item
+      ));
+    }, 2000);
+
+    const timer3 = setTimeout(() => {
+      setProgress(prev => prev.map((item, idx) =>
+        idx === 4 ? { ...item, status: 'completed' } : item
+      ));
+      setTimeout(onComplete, 1000);
+    }, 3000);
+
+    return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+      clearTimeout(timer3);
+    };
+  }, [onComplete]);
+
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[70vh] w-full max-w-xl mx-auto text-center space-y-10 animate-fade-up">
+      <div className="space-y-4">
+        <div className="w-20 h-20 rounded-full bg-[#D4AF37]/10 border-2 border-[#D4AF37]/30 flex items-center justify-center mx-auto mb-6 animate-pulse">
+          <Loader2 size={40} className="text-[#D4AF37] animate-spin" />
+        </div>
+        <h2 className="text-4xl font-bold text-white">Building Your Campaign...</h2>
+        <p className="text-neutral-400 text-lg">Deploying to Facebook Ads Manager</p>
+      </div>
+
+      <Card className="w-full space-y-4 py-8">
+        {progress.map((item, idx) => (
+          <div key={idx} className="flex items-center gap-4 px-6">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+              item.status === 'completed'
+                ? 'bg-green-500/20 border-2 border-green-500'
+                : item.status === 'in_progress'
+                ? 'bg-[#D4AF37]/20 border-2 border-[#D4AF37] animate-pulse'
+                : 'bg-neutral-800 border-2 border-neutral-700'
+            }`}>
+              {item.status === 'completed' && <CheckCircle size={16} className="text-green-400" />}
+              {item.status === 'in_progress' && <Loader2 size={16} className="text-[#D4AF37] animate-spin" />}
+            </div>
+            <div className="flex-1 text-left">
+              <p className={`font-medium ${
+                item.status === 'completed'
+                  ? 'text-green-400'
+                  : item.status === 'in_progress'
+                  ? 'text-[#D4AF37]'
+                  : 'text-neutral-500'
+              }`}>
+                {item.step}
+              </p>
+            </div>
+          </div>
+        ))}
+      </Card>
+    </div>
+  );
+};
+
+const CampaignSuccessStep = ({ adAccountUrl, onNext }) => (
+  <div className="flex flex-col items-center justify-center min-h-[70vh] w-full max-w-xl mx-auto text-center space-y-10 animate-fade-up">
+    <div className="space-y-6">
+      <div className="w-24 h-24 rounded-full bg-green-500/20 border-4 border-green-500/50 flex items-center justify-center mx-auto animate-scale-in">
+        <CheckCircle size={48} className="text-green-400" />
+      </div>
+      <h2 className="text-4xl font-bold text-white">Campaign Successfully Created!</h2>
+      <p className="text-neutral-400 text-lg max-w-md mx-auto">
+        Your campaign is now live in your Facebook Ads Manager. You can review and activate it anytime.
+      </p>
+    </div>
+
+    <Card className="w-full space-y-6 py-8">
+      <div className="space-y-3">
+        <div className="flex items-center justify-between px-6">
+          <span className="text-neutral-400">Status</span>
+          <span className="text-green-400 font-medium">Paused (Ready to Activate)</span>
+        </div>
+        <div className="flex items-center justify-between px-6">
+          <span className="text-neutral-400">Daily Budget</span>
+          <span className="text-white font-medium">$5.00</span>
+        </div>
+        <div className="flex items-center justify-between px-6">
+          <span className="text-neutral-400">Objective</span>
+          <span className="text-white font-medium">Lead Generation</span>
+        </div>
+      </div>
+
+      <div className="px-6 pt-4">
+        <Button
+          onClick={() => window.open(adAccountUrl || 'https://business.facebook.com/adsmanager', '_blank')}
+          className="w-full text-lg bg-[#1877F2] hover:bg-[#166fe5] border-none text-white"
+        >
+          <Facebook size={20} className="fill-white" /> View in Ads Manager
+        </Button>
+      </div>
+
+      <div className="px-6">
+        <Button onClick={onNext} variant="outline" className="w-full">
+          Continue to Pricing
+        </Button>
+      </div>
+    </Card>
+  </div>
+);
+
 const DeployStep = ({ onNext, onWatchDemo, creativeData, formData, videoUrl }) => {
   const [isDeploying, setIsDeploying] = useState(false);
   const [deploymentResult, setDeploymentResult] = useState(null);
+  const [showBuildingProgress, setShowBuildingProgress] = useState(false);
+  const [adAccountUrl, setAdAccountUrl] = useState(null);
 
   const handleFacebookConnect = async () => {
     console.log('🔵 handleFacebookConnect called');
     setIsDeploying(true);
     setDeploymentResult(null);
+    setShowBuildingProgress(true);
 
     try {
       console.log('🔵 Calling deployAdCampaign...');
@@ -1266,11 +1393,8 @@ const DeployStep = ({ onNext, onWatchDemo, creativeData, formData, videoUrl }) =
       console.log('🔵 deployAdCampaign result:', result);
       setDeploymentResult(result);
 
-      if (result.success) {
-        // Wait 2 seconds to show success message, then proceed
-        setTimeout(() => {
-          onNext();
-        }, 2000);
+      if (result.success && result.adAccountId) {
+        setAdAccountUrl(`https://business.facebook.com/adsmanager/manage/campaigns?act=${result.adAccountId}`);
       }
     } catch (error) {
       console.error('🔴 Error in handleFacebookConnect:', error);
@@ -1278,12 +1402,24 @@ const DeployStep = ({ onNext, onWatchDemo, creativeData, formData, videoUrl }) =
         success: false,
         error: error.message || 'Failed to connect to Facebook'
       });
+      setShowBuildingProgress(false);
     } finally {
       console.log('🔵 Setting isDeploying to false');
       setIsDeploying(false);
     }
   };
 
+  // Show building progress screen when deployment starts
+  if (showBuildingProgress && !deploymentResult) {
+    return <CampaignBuildingStep adAccountUrl={adAccountUrl} onComplete={() => {}} />;
+  }
+
+  // Show success screen when deployment completes successfully
+  if (deploymentResult?.success) {
+    return <CampaignSuccessStep adAccountUrl={adAccountUrl} onNext={onNext} />;
+  }
+
+  // Show connect button and error state
   return (
     <div className="flex flex-col items-center justify-center min-h-[70vh] w-full max-w-xl mx-auto text-center space-y-10 animate-fade-up">
       <div className="space-y-4">
@@ -1307,26 +1443,14 @@ const DeployStep = ({ onNext, onWatchDemo, creativeData, formData, videoUrl }) =
           )}
         </Button>
 
-        {deploymentResult && (
-          <div className={`p-4 rounded-xl border ${
-            deploymentResult.success
-              ? 'bg-green-900/20 border-green-500/30'
-              : 'bg-red-900/20 border-red-500/30'
-          }`}>
+        {deploymentResult && !deploymentResult.success && (
+          <div className="p-4 rounded-xl border bg-red-900/20 border-red-500/30">
             <div className="flex items-center justify-center gap-2 mb-2">
-              {deploymentResult.success ? (
-                <CheckCircle size={20} className="text-green-400" />
-              ) : (
-                <AlertCircle size={20} className="text-red-400" />
-              )}
-              <p className={`font-semibold ${
-                deploymentResult.success ? 'text-green-400' : 'text-red-400'
-              }`}>
-                {deploymentResult.success ? 'Success!' : 'Error'}
-              </p>
+              <AlertCircle size={20} className="text-red-400" />
+              <p className="font-semibold text-red-400">Error</p>
             </div>
             <p className="text-sm text-neutral-300">
-              {deploymentResult.message || deploymentResult.error}
+              {deploymentResult.error}
             </p>
           </div>
         )}
