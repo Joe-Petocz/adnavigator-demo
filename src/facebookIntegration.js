@@ -396,6 +396,7 @@ export const createAdCreative = async (accessToken, adAccountId, creativeData) =
         video_id: videoId,
         message: primaryText,
         title: headlines[0],
+        image_url: 'https://via.placeholder.com/1200x628.png?text=Video+Ad', // Placeholder thumbnail
         call_to_action: {
           type: normalizedCTA,
           value: {
